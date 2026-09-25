@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VolleyScore">
+<title>VolleyScore</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#1f1f1f">
+<style>
+:root{
+  --home:#4A90E2; --away:#E05243;
+  --bg:#eceef1; --panel:#ffffff; --ink:#1c1c1e; --muted:#9a9aa0; --scrim:rgba(0,0,0,.55);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#1f1f1f; --panel:#2c2c2c; --ink:#ffffff; --muted:#6d6d72; --scrim:rgba(0,0,0,.78); }
+}
+:root[data-theme="dark"]{ --bg:#1f1f1f; --panel:#2c2c2c; --ink:#ffffff; --muted:#6d6d72; --scrim:rgba(0,0,0,.78); }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); height:100%; background:var(--bg); }
+*,*::before,*::after{ box-sizing:border-box; }
+body{
+  height:100%; margin:0; background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent;
+  overflow:hidden;
+}
+button{ font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer; }
+button:focus-visible{ outline:3px solid var(--home); outline-offset:3px; border-radius:10px; }
+button:disabled{ opacity:.35; }
+.ico{ width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+#app{ height:100%; max-width:560px; margin:0 auto; padding:10px 14px 10px;
+  display:flex; flex-direction:column; gap:12px; }
+
+/* afficheur 7 segments */
+.seg{ display:flex; justify-content:center; align-items:center; gap:.12em; height:100%; }
+.seg svg{ height:100%; width:auto; aspect-ratio:55/100; fill:currentColor; display:block; }
+
+/* chrono + temps morts */
+.top{ display:flex; align-items:center; justify-content:space-between; }
+.to{ display:flex; align-items:center; gap:6px; padding:6px; }
+.dots{ display:flex; flex-direction:column; gap:5px; }
+.dots i{ width:9px; height:9px; border-radius:50%; background:var(--muted); opacity:.45; display:block; }
+.dots i.on{ opacity:1; }
+.clock{ display:flex; align-items:center; gap:8px; height:64px; padding:10px 18px;
+  background:var(--panel); border-radius:14px; }
+.clock .seg{ gap:5px; }
+.clock.paused{ opacity:.7; }
+.colon{ display:flex; flex-direction:column; gap:10px; }
+.colon i{ width:6px; height:6px; border-radius:50%; background:currentColor; display:block; }
+
+/* noms + sets */
+.names{ display:grid; grid-template-columns:1fr 72px 72px 1fr; gap:12px; align-items:center; }
+.tname{ text-align:center; font-weight:600; font-size:28px; line-height:1.1;
+  overflow:hidden; word-break:normal; overflow-wrap:normal; hyphens:none; min-width:0; }
+.setbox{ container-type:size; height:64px; border-radius:14px; color:#fff; padding:10px 0; }
+
+/* gros score */
+.cards{ display:grid; grid-template-columns:1fr 1fr; gap:14px; height:min(23vh,44vw,230px); flex:none; }
+.card{ container-type:size; height:100%; min-width:0; border-radius:26px; color:#fff; display:flex; align-items:center; justify-content:center;
+  touch-action:none; position:relative; transition:transform .08s; }
+.card:active{ transform:scale(.98); }
+.card .seg{ height:62cqh; gap:6cqw; }
+
+/* barres d'outils */
+.bar{ display:flex; justify-content:space-between; align-items:center; padding:0 6px; }
+.bar button{ padding:4px; display:flex; }
+.serve{ color:var(--muted); }
+.serve .ico{ width:32px; height:32px; }
+
+/* terrain */
+.court{ flex:1 1 0; min-height:0; display:grid; grid-template-columns:1fr 5px 1fr; border-radius:26px; overflow:hidden; }
+.net{ background:#fff; }
+.half{ display:grid; grid-template-columns:1fr 1fr; grid-template-rows:repeat(3,1fr); gap:10px; padding:12px; min-height:0; }
+.cell{ container-type:size; min-height:0; display:flex; align-items:center; justify-content:center; }
+.player{ width:min(100cqw,100cqh); height:min(100cqw,100cqh); border-radius:50%; background:#fff;
+  position:relative; display:flex; align-items:center; justify-content:center; }
+.player .seg{ height:36%; gap:4px; }
+.badge{ position:absolute; right:-4%; bottom:-4%; width:36%; height:36%; border-radius:50%; background:#fff;
+  border:2px solid currentColor; display:flex; align-items:center; justify-content:center; }
+.badge .ico{ width:78%; height:78%; }
+
+/* fenêtres */
+.overlay{ position:fixed; inset:0; background:var(--scrim); display:none; align-items:center; justify-content:center;
+  padding:calc(20px + env(safe-area-inset-top,0px)) 20px calc(20px + env(safe-area-inset-bottom,0px)); z-index:10; }
+.overlay.show{ display:flex; }
+.sheet{ background:var(--panel); color:var(--ink); border-radius:20px; padding:22px; width:100%; max-width:420px;
+  max-height:100%; overflow:auto; -webkit-user-select:text; user-select:text; }
+.sheet h2{ margin:0 0 14px; font-size:20px; }
+.sheet p{ margin:0 0 16px; line-height:1.45; color:var(--muted); }
+.sheet label{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0;
+  border-bottom:1px solid color-mix(in srgb,var(--muted) 30%,transparent); font-size:16px; }
+.sheet input,.sheet select{ font:inherit; font-size:16px; color:var(--ink); background:var(--bg); border:0;
+  border-radius:10px; padding:8px 10px; min-width:0; }
+.sheet input[type=text]{ width:55%; }
+.sheet input[type=number]{ width:80px; text-align:center; }
+.sheet input[type=checkbox]{ width:22px; height:22px; accent-color:var(--home); }
+.actions{ display:flex; gap:10px; margin-top:18px; }
+.actions button{ flex:1; padding:13px; border-radius:12px; background:var(--bg); font-weight:600; }
+.actions .primary{ background:var(--home); color:#fff; }
+.actions .danger{ background:var(--away); color:#fff; }
+.row{ display:flex; justify-content:space-between; padding:9px 0; font-variant-numeric:tabular-nums;
+  border-bottom:1px solid color-mix(in srgb,var(--muted) 30%,transparent); }
+.row b.h{ color:var(--home); } .row b.a{ color:var(--away); }
+.hint{ font-size:14px; margin-top:14px !important; }
+
+#timeout{ flex-direction:column; gap:26px; color:#fff; }
+#timeout .tt{ font-size:22px; font-weight:600; }
+#timeout .seg{ height:150px; gap:14px; }
+#timeout button{ padding:14px 26px; border-radius:14px; color:#fff; font-weight:600; font-size:17px; }
+
+.toast{ position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
+  background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:12px; font-size:15px;
+  opacity:0; transition:opacity .2s; pointer-events:none; z-index:20; }
+.toast.show{ opacity:1; }
+@media (prefers-reduced-motion: reduce){ .card,.toast{ transition:none; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="overlay" id="modal"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="overlay" id="timeout"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+/* ---------- Icônes ---------- */
+const I = {
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  swap:'<path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/>',
+  list:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
+  share:'<path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/>',
+  gear:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  cw:'<path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/>',
+  ccw:'<path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/>',
+  watch:'<circle cx="12" cy="14" r="8"/><path d="M12 14v-4"/><path d="M10 2h4"/><path d="M12 2v4"/>',
+  ball:'<circle cx="12" cy="12" r="10"/><path d="M11.9 12.1 4.6 16.3"/><path d="M12 12a9.7 9.7 0 0 1 9.4 4.3"/><path d="M12 12a9.7 9.7 0 0 0-.6-9.9"/><path d="M8.2 3.4A15 15 0 0 1 12 12"/><path d="M20.7 16.2A15 15 0 0 1 12 12"/><path d="M5.2 19.4A15 15 0 0 1 12 12"/>'
+};
+const ico = (n, cls='ico') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${I[n]}</svg>`;
+
+/* ---------- Afficheur 7 segments ---------- */
+const SEG = ["abcdef","bc","abged","abgcd","fgbc","afgcd","afgedc","abc","abcdefg","abcdfg"];
+function digit(d){
+  const w=55,h=100,t=9.5,g=2.2,r=3.6, on=SEG[d]||SEG[0]; let s='';
+  const H=y=>`<rect x="${t/2+g}" y="${y-t/2}" width="${w-t-2*g}" height="${t}" rx="${r}"/>`;
+  const V=(x,a,b)=>`<rect x="${x-t/2}" y="${a+g}" width="${t}" height="${b-a-2*g}" rx="${r}"/>`;
+  if(on.includes('a')) s+=H(t/2);
+  if(on.includes('g')) s+=H(h/2);
+  if(on.includes('d')) s+=H(h-t/2);
+  if(on.includes('f')) s+=V(t/2,t/2,h/2);
+  if(on.includes('b')) s+=V(w-t/2,t/2,h/2);
+  if(on.includes('e')) s+=V(t/2,h/2,h-t/2);
+  if(on.includes('c')) s+=V(w-t/2,h/2,h-t/2);
+  return `<svg viewBox="0 0 55 100" aria-hidden="true">${s}</svg>`;
+}
+const seg = (v, n=2) => `<div class="seg">${String(v).padStart(n,'0').split('').map(Number).map(digit).join('')}</div>`;
+
+/* ---------- État ---------- */
+const DEF = { homeName:"Domicile", awayName:"Visiteurs", pointsPerSet:25, tieBreak:15, setsToWin:3, timeoutSec:30, vibrate:true };
+const team = () => ({ points:0, sets:0, timeouts:2, rot:[1,2,3,4,5,6] }); // rot[0] = poste 1
+const fresh = () => ({ home:team(), away:team(), serving:'home', swapped:false, sets:[], winner:null });
+
+const store = {
+  get(k){ try{ const v = localStorage.getItem('vs_'+k); return v ? JSON.parse(v) : null; }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem('vs_'+k, JSON.stringify(v)); }catch(e){} }
+};
+let S = store.get('match') || fresh();
+let C = Object.assign({}, DEF, store.get('settings') || {});
+let elapsed = store.get('elapsed') || 0;
+let history = [];
+let clockId = null, toId = null, timeout = null;
+
+const other = t => t==='home' ? 'away' : 'home';
+const name = t => t==='home' ? C.homeName : C.awayName;
+const col  = t => t==='home' ? 'var(--home)' : 'var(--away)';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const setNo = () => S.home.sets + S.away.sets + 1;
+const target = () => setNo() === C.setsToWin*2-1 ? C.tieBreak : C.pointsPerSet;
+const cw  = a => a.slice(1).concat(a[0]);        // poste 2 → 1, 1 → 6…
+const ccw = a => [a[5]].concat(a.slice(0,5));
+
+function snap(){ history.push(JSON.stringify(S)); if(history.length>500) history.shift(); }
+function buzz(ms=15){ if(C.vibrate && navigator.vibrate) try{ navigator.vibrate(ms); }catch(e){} }
+function commit(){ store.set('match', S); render(); }
+
+/* ---------- Actions ---------- */
+function addPoint(t){
+  if(S.winner) return;
+  snap();
+  S[t].points++;
+  if(S.serving !== t){ S.serving = t; S[t].rot = cw(S[t].rot); } // side-out
+  checkSet();
+  commit(); buzz();
+}
+function removePoint(t){
+  if(S[t].points<=0) return;
+  snap(); S[t].points--; commit(); buzz();
+}
+function checkSet(){
+  const h=S.home.points, a=S.away.points;
+  if(Math.max(h,a) < target() || Math.abs(h-a) < 2) return;
+  const w = h>a ? 'home' : 'away';
+  S.sets.push({home:h, away:a});
+  S[w].sets++;
+  S.home.points = S.away.points = 0;
+  S.home.timeouts = S.away.timeouts = 2;
+  if(S[w].sets >= C.setsToWin){
+    S.winner = w; stopClock();
+    message(`${esc(name(w))} remporte le match`, `Score final : ${S.home.sets} – ${S.away.sets} (${S.sets.map(s=>s.home+'-'+s.away).join(', ')}).`);
+  } else {
+    S.swapped = !S.swapped;
+    message(`${esc(name(w))} remporte le set ${S.sets.length}`, `${h} – ${a}. Les équipes changent de côté.`);
+  }
+  buzz(200);
+}
+function undo(){ const p = history.pop(); if(p){ S = JSON.parse(p); commit(); buzz(); } }
+
+function toggleClock(){ clockId ? stopClock() : startClock(); render(); }
+function startClock(){
+  clockId = setInterval(() => { elapsed++; store.set('elapsed', elapsed); renderClock(); }, 1000);
+  wake();
+}
+function stopClock(){ clearInterval(clockId); clockId = null; }
+
+function callTimeout(t){
+  if(timeout || S[t].timeouts<=0) return;
+  snap(); S[t].timeouts--; commit(); buzz(40);
+  timeout = { team:t, left:C.timeoutSec };
+  renderTimeout();
+  toId = setInterval(() => { timeout.left--; if(timeout.left<=0) endTimeout(); else renderTimeout(); }, 1000);
+}
+function endTimeout(){ clearInterval(toId); toId=null; timeout=null; renderTimeout(); buzz(300); }
+
+async function share(){
+  let txt = `${C.homeName} ${S.home.sets} – ${S.away.sets} ${C.awayName}`;
+  if(S.sets.length) txt += `\nSets : ${S.sets.map(s=>s.home+'-'+s.away).join(', ')}`;
+  if(!S.winner) txt += `\nSet ${setNo()} en cours : ${S.home.points}-${S.away.points}`;
+  try{ if(navigator.share){ await navigator.share({ text:txt }); return; } }catch(e){ if(e.name==='AbortError') return; }
+  try{ await navigator.clipboard.writeText(txt); toast('Score copié'); }catch(e){ message('Score', esc(txt).replace(/\n/g,'<br>')); }
+}
+
+let wakeLock = null;
+async function wake(){ try{ if('wakeLock' in navigator && !wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>wakeLock=null); } }catch(e){} }
+document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible') wake(); });
+
+/* ---------- Fenêtres ---------- */
+const modal = document.getElementById('modal'), sheet = document.getElementById('sheet');
+function open(html){ sheet.innerHTML = html; modal.classList.add('show'); const f = sheet.querySelector('input'); if(f) setTimeout(()=>f.focus(),50); }
+function close(){ modal.classList.remove('show'); }
+modal.addEventListener('click', e => { if(e.target===modal) close(); });
+function message(title, body){
+  open(`<h2>${title}</h2><p>${body}</p><div class="actions"><button class="primary" data-m="close">OK</button></div>`);
+}
+function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),1600); }
+
+function confirmNew(){
+  open(`<h2>Nouveau match ?</h2><p>Le score, les sets et le chrono seront remis à zéro. Les noms et les numéros des joueurs sont conservés.</p>
+  <div class="actions"><button data-m="close">Annuler</button><button class="danger" data-m="new">Nouveau match</button></div>`);
+}
+function editPlayer(t, pos){
+  const n = S[t].rot[pos-1];
+  open(`<h2>Poste ${pos} – ${esc(name(t))}</h2>
+  <label>Numéro du joueur <input id="pnum" type="number" inputmode="numeric" min="0" max="99" value="${n}"></label>
+  <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="player" data-team="${t}" data-pos="${pos}">Enregistrer</button></div>`);
+}
+function historyView(){
+  let rows = S.sets.map((s,i)=>`<div class="row"><span>Set ${i+1}</span><span><b class="h">${s.home}</b> – <b class="a">${s.away}</b></span></div>`).join('');
+  if(!S.winner) rows += `<div class="row"><span>Set ${setNo()} (en cours)</span><span><b class="h">${S.home.points}</b> – <b class="a">${S.away.points}</b></span></div>`;
+  rows += `<div class="row"><span>Sets gagnés</span><span><b class="h">${S.home.sets}</b> – <b class="a">${S.away.sets}</b></span></div>`;
+  const m = Math.floor(elapsed/60), s = elapsed%60;
+  open(`<h2>${esc(C.homeName)} – ${esc(C.awayName)}</h2>${rows}
+  <p class="hint">Durée du match : ${m} min ${String(s).padStart(2,'0')} s</p>
+  <div class="actions"><button class="primary" data-m="close">OK</button></div>`);
+}
+function settingsView(){
+  open(`<h2>Réglages</h2>
+  <label>Équipe à domicile <input id="s_home" type="text" maxlength="24" value="${esc(C.homeName)}"></label>
+  <label>Équipe visiteuse <input id="s_away" type="text" maxlength="24" value="${esc(C.awayName)}"></label>
+  <label>Format
+    <select id="s_sets">
+      <option value="3" ${C.setsToWin==3?'selected':''}>3 sets gagnants</option>
+      <option value="2" ${C.setsToWin==2?'selected':''}>2 sets gagnants</option>
+      <option value="1" ${C.setsToWin==1?'selected':''}>1 set</option>
+    </select></label>
+  <label>Points par set <input id="s_pts" type="number" inputmode="numeric" min="5" max="50" value="${C.pointsPerSet}"></label>
+  <label>Points au tie-break <input id="s_tb" type="number" inputmode="numeric" min="5" max="50" value="${C.tieBreak}"></label>
+  <label>Temps mort (secondes) <input id="s_to" type="number" inputmode="numeric" min="10" max="120" value="${C.timeoutSec}"></label>
+  <label>Vibrations <input id="s_vib" type="checkbox" ${C.vibrate?'checked':''}></label>
+  <p class="hint">Touchez un score pour ajouter un point, glissez vers le bas pour en retirer un. Touchez un joueur sur le terrain pour changer son numéro. Touchez le chrono pour le lancer ou le mettre en pause.</p>
+  <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="settings">Enregistrer</button></div>`);
+}
+const clamp = (v,a,b,d) => { v = parseInt(v,10); return isNaN(v) ? d : Math.min(b, Math.max(a, v)); };
+
+sheet.addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); if(!b) return;
+  const m = b.dataset.m;
+  if(m==='new'){ history=[]; stopClock(); elapsed=0; store.set('elapsed',0); if(timeout) endTimeout();
+    const keep = { h:S.home.rot, a:S.away.rot }; S = fresh(); S.home.rot = keep.h; S.away.rot = keep.a; commit(); }
+  if(m==='player'){ const t=b.dataset.team, p=+b.dataset.pos; const v=parseInt(document.getElementById('pnum').value,10);
+    if(!isNaN(v) && v>=0 && v<=99){ S[t].rot[p-1]=v; commit(); } }
+  if(m==='settings'){
+    C.homeName = document.getElementById('s_home').value.trim() || DEF.homeName;
+    C.awayName = document.getElementById('s_away').value.trim() || DEF.awayName;
+    C.setsToWin = clamp(document.getElementById('s_sets').value,1,3,3);
+    C.pointsPerSet = clamp(document.getElementById('s_pts').value,5,50,25);
+    C.tieBreak = clamp(document.getElementById('s_tb').value,5,50,15);
+    C.timeoutSec = clamp(document.getElementById('s_to').value,10,120,30);
+    C.vibrate = document.getElementById('s_vib').checked;
+    store.set('settings', C); render();
+  }
+  close();
+});
+sheet.addEventListener('keydown', e => { if(e.key==='Enter'){ const p = sheet.querySelector('.primary'); if(p) p.click(); } });
+
+/* ---------- Rendu ---------- */
+const app = document.getElementById('app');
+const LEFT_LAYOUT  = [5,4, 6,3, 1,2];   // filet à droite
+const RIGHT_LAYOUT = [2,1, 3,6, 4,5];   // filet à gauche
+
+function timeoutBtn(t, dotsFirst){
+  const dots = `<span class="dots">${[0,1].map(i=>`<i class="${i<S[t].timeouts?'on':''}" style="background:${i<S[t].timeouts?col(t):''}"></i>`).join('')}</span>`;
+  return `<button class="to" data-act="timeout" data-team="${t}" ${S[t].timeouts?'':'disabled'} aria-label="Temps mort ${esc(name(t))}">
+    ${dotsFirst?dots:''}${ico('watch')}${dotsFirst?'':dots}</button>`;
+}
+function half(t, layout){
+  return `<div class="half" style="background:${col(t)}">${layout.map(pos=>{
+    const n = S[t].rot[pos-1];
+    const badge = (pos===1 && S.serving===t) ? `<span class="badge" style="color:${col(t)}">${ico('ball')}</span>` : '';
+    return `<div class="cell"><button class="player" style="color:${col(t)}" data-act="player" data-team="${t}" data-pos="${pos}" aria-label="Poste ${pos}, joueur ${n}">${seg(n, n>9?2:1)}${badge}</button></div>`;
+  }).join('')}</div>`;
+}
+function clockHTML(){
+  return `${seg(Math.floor(elapsed/60)%100)}<span class="colon"><i></i><i></i></span>${seg(elapsed%60)}`;
+}
+function renderClock(){ const c = document.getElementById('clock'); if(c) c.innerHTML = clockHTML(); }
+
+function render(){
+  const L = S.swapped ? 'away' : 'home', R = other(L);
+  app.innerHTML = `
+  <div class="top">
+    ${timeoutBtn(L, true)}
+    <button class="clock ${clockId?'':'paused'}" id="clock" data-act="clock" aria-label="Chrono du match">${clockHTML()}</button>
+    ${timeoutBtn(R, false)}
+  </div>
+  <div class="names">
+    <div class="tname" style="color:${col(L)}">${esc(name(L))}</div>
+    <div class="setbox" style="background:${col(L)}" aria-label="Sets ${esc(name(L))} : ${S[L].sets}">${seg(S[L].sets,1)}</div>
+    <div class="setbox" style="background:${col(R)}" aria-label="Sets ${esc(name(R))} : ${S[R].sets}">${seg(S[R].sets,1)}</div>
+    <div class="tname" style="color:${col(R)}">${esc(name(R))}</div>
+  </div>
+  <div class="cards">
+    <div class="card" style="background:${col(L)}" data-score="${L}" role="button" tabindex="0" aria-label="${esc(name(L))} : ${S[L].points} points. Touchez pour ajouter un point.">${seg(S[L].points)}</div>
+    <div class="card" style="background:${col(R)}" data-score="${R}" role="button" tabindex="0" aria-label="${esc(name(R))} : ${S[R].points} points. Touchez pour ajouter un point.">${seg(S[R].points)}</div>
+  </div>
+  <div class="bar">
+    <button data-act="new" aria-label="Nouveau match">${ico('plus')}</button>
+    <button data-act="undo" aria-label="Annuler" ${history.length?'':'disabled'}>${ico('undo')}</button>
+    <button data-act="swap" aria-label="Changer de côté">${ico('swap')}</button>
+    <button data-act="history" aria-label="Historique des sets">${ico('list')}</button>
+    <button data-act="share" aria-label="Partager le score">${ico('share')}</button>
+    <button data-act="settings" aria-label="Réglages">${ico('gear')}</button>
+  </div>
+  <div class="bar">
+    <button data-act="rot" data-team="${L}" data-dir="cw" aria-label="Rotation avant ${esc(name(L))}">${ico('cw')}</button>
+    <button data-act="rot" data-team="${L}" data-dir="ccw" aria-label="Rotation arrière ${esc(name(L))}">${ico('ccw')}</button>
+    <button class="serve" data-act="serve" data-team="${L}" style="${S.serving===L?'color:'+col(L):''}" aria-label="Service ${esc(name(L))}">${ico('ball')}</button>
+    <button class="serve" data-act="serve" data-team="${R}" style="${S.serving===R?'color:'+col(R):''}" aria-label="Service ${esc(name(R))}">${ico('ball')}</button>
+    <button data-act="rot" data-team="${R}" data-dir="cw" aria-label="Rotation avant ${esc(name(R))}">${ico('cw')}</button>
+    <button data-act="rot" data-team="${R}" data-dir="ccw" aria-label="Rotation arrière ${esc(name(R))}">${ico('ccw')}</button>
+  </div>
+  <div class="court">
+    ${half(L, LEFT_LAYOUT)}
+    <div class="net"></div>
+    ${half(R, RIGHT_LAYOUT)}
+  </div>`;
+  fitNames();
+}
+function fitNames(){
+  document.querySelectorAll('.tname').forEach(el => {
+    let size = 28; el.style.fontSize = size+'px';
+    const lh = () => parseFloat(getComputedStyle(el).lineHeight) || size*1.1;
+    while(size > 11 && (el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > lh()*2 + 2)){
+      size -= 1; el.style.fontSize = size+'px';
+    }
+  });
+}
+window.addEventListener('resize', fitNames);
+function renderTimeout(){
+  const el = document.getElementById('timeout');
+  if(!timeout){ el.classList.remove('show'); el.innerHTML=''; return; }
+  el.innerHTML = `<div class="tt" style="color:${col(timeout.team)}">Temps mort – ${esc(name(timeout.team))}</div>
+    ${seg(timeout.left)}
+    <button style="background:${col(timeout.team)}" data-act="endto">Reprendre le jeu</button>`;
+  el.classList.add('show');
+}
+document.getElementById('timeout').addEventListener('click', e => { if(e.target.closest('[data-act="endto"]')) endTimeout(); });
+
+/* ---------- Événements ---------- */
+app.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if(!b || b.disabled) return;
+  const t = b.dataset.team;
+  switch(b.dataset.act){
+    case 'clock': toggleClock(); break;
+    case 'timeout': callTimeout(t); break;
+    case 'new': confirmNew(); break;
+    case 'undo': undo(); break;
+    case 'swap': S.swapped = !S.swapped; commit(); buzz(); break;
+    case 'history': historyView(); break;
+    case 'share': share(); break;
+    case 'settings': settingsView(); break;
+    case 'rot': snap(); S[t].rot = b.dataset.dir==='cw' ? cw(S[t].rot) : ccw(S[t].rot); commit(); buzz(); break;
+    case 'serve': if(S.serving!==t){ snap(); S.serving=t; commit(); buzz(); } break;
+    case 'player': editPlayer(t, +b.dataset.pos); break;
+  }
+});
+
+// Score : toucher = +1, glisser vers le bas = −1, vers le haut = +1
+let down = null;
+app.addEventListener('pointerdown', e => {
+  const c = e.target.closest('[data-score]'); if(!c) return;
+  down = { t:c.dataset.score, x:e.clientX, y:e.clientY };
+  wake();
+});
+window.addEventListener('pointerup', e => {
+  if(!down) return;
+  const dy = e.clientY - down.y, dx = e.clientX - down.x, t = down.t; down = null;
+  if(dy > 40) removePoint(t);
+  else if(dy < -40) addPoint(t);
+  else if(Math.abs(dy) < 15 && Math.abs(dx) < 15) addPoint(t);
+});
+window.addEventListener('pointercancel', () => down = null);
+app.addEventListener('keydown', e => {
+  const c = e.target.closest('[data-score]');
+  if(c && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); addPoint(c.dataset.score); }
+});
+document.addEventListener('keydown', e => {
+  if((e.metaKey||e.ctrlKey) && e.key==='z'){ e.preventDefault(); undo(); }
+  if(e.key==='Escape') close();
+});
+
+render();
+if('serviceWorker' in navigator && location.protocol==='https:'){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+})();
+</script>
+</body>
+</html>
