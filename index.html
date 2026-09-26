@@ -104,6 +104,7 @@ button:disabled{ opacity:.35; }
   border-radius:10px; padding:8px 10px; min-width:0; }
 .sheet input[type=text]{ width:55%; }
 .sheet input[type=number]{ width:80px; text-align:center; }
+.sheet input[type=color]{ width:52px; height:36px; padding:3px; cursor:pointer; }
 .sheet input[type=checkbox]{ width:22px; height:22px; accent-color:var(--home); }
 .actions{ display:flex; gap:10px; margin-top:18px; }
 .actions button{ flex:1; padding:13px; border-radius:12px; background:var(--bg); font-weight:600; }
@@ -137,6 +138,13 @@ button:disabled{ opacity:.35; }
 #timeout{ flex-direction:column; gap:26px; color:#fff; }
 #timeout .tt{ font-size:22px; font-weight:600; }
 #timeout .seg{ height:150px; gap:14px; }
+#timeout .tinfo{ text-align:center; font-size:16px; line-height:1.5; opacity:.9; padding:0 16px; }
+#timeout .tinfo.warn{ color:#FFB020; font-weight:700; opacity:1; }
+#timeout .bclock{ display:flex; align-items:center; gap:14px; height:130px; }
+#timeout .bclock .seg{ height:100%; }
+#timeout .bclock .colon i{ width:12px; height:12px; }
+#timeout .bclock.warn{ color:#FFB020; animation:blink 1s steps(2) infinite; }
+@keyframes blink{ 50%{ opacity:.45; } }
 #timeout button{ padding:14px 26px; border-radius:14px; color:#fff; font-weight:600; font-size:17px; }
 
 .toast{ position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom,0px)); transform:translateX(-50%);
@@ -191,7 +199,8 @@ function digit(d){
 const seg = (v, n=2) => `<div class="seg">${String(v).padStart(n,'0').split('').map(Number).map(digit).join('')}</div>`;
 
 /* ---------- État ---------- */
-const DEF = { homeName:"Domicile", awayName:"Visiteurs", pointsPerSet:25, tieBreak:15, setsToWin:3, timeoutSec:30, vibrate:true };
+const DEF = { homeName:"Domicile", awayName:"Visiteurs", pointsPerSet:25, tieBreak:15, setsToWin:3, timeoutSec:30, vibrate:true,
+  breakMin:3, sound:true, antiDouble:true, homeColor:"#136F8C", awayColor:"#C2185B" };
 const team = () => ({ points:0, sets:0, timeouts:2, rot:[1,2,3,4,5,6] }); // rot[0] = poste 1
 const fresh = () => ({ home:team(), away:team(), serving:'home', swapped:false, sets:[], winner:null, cur:{seq:'',start:null}, startedAt:null });
 
@@ -203,6 +212,52 @@ let S = store.get('match') || fresh();
 let C = Object.assign({}, DEF, store.get('settings') || {});
 let elapsed = store.get('elapsed') || 0;
 let history = [];
+/* ---------- Couleurs des équipes ---------- */
+function applyColors(){
+  const r = document.documentElement.style;
+  r.setProperty('--home', C.homeColor || DEF.homeColor);
+  r.setProperty('--away', C.awayColor || DEF.awayColor);
+}
+function lum(hex){
+  const c = hex.replace('#',''); const v = [0,2,4].map(i => parseInt(c.substr(i,2),16)/255).map(x => x<=0.03928 ? x/12.92 : Math.pow((x+0.055)/1.055, 2.4));
+  return 0.2126*v[0] + 0.7152*v[1] + 0.0722*v[2];
+}
+applyColors();
+
+/* ---------- Sons (générés, aucun fichier) ---------- */
+let AC = null;
+try{ if(navigator.audioSession) navigator.audioSession.type = 'playback'; }catch(e){}
+function audio(){
+  if(!C.sound) return null;
+  try{ if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if(AC.state === 'suspended') AC.resume(); }catch(e){ return null; }
+  return AC;
+}
+function tone(freq, start, dur, type, vol){
+  const ac = audio(); if(!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain(), t0 = ac.currentTime + start;
+  o.type = type || 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol || 0.2, t0 + 0.02);
+  g.gain.setValueAtTime(vol || 0.2, t0 + Math.max(0.03, dur - 0.05));
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + dur + 0.05);
+}
+const SND = {
+  buzzer(){ tone(196,0,1.0,'sawtooth',0.22); tone(207,0,1.0,'square',0.10); },
+  warn(){ tone(880,0,0.14,'sine',0.3); tone(880,0.22,0.14,'sine',0.3); tone(880,0.44,0.14,'sine',0.3); },
+  set(){ [523,659,784].forEach((f,i) => tone(f, i*0.14, 0.24, 'triangle', 0.28)); },
+  match(){ [523,659,784,1047].forEach((f,i) => tone(f, i*0.15, 0.26, 'triangle', 0.28)); tone(784,0.75,0.18,'triangle',0.28); tone(1047,0.95,0.7,'triangle',0.32); }
+};
+document.addEventListener('pointerdown', () => { if(C.sound){ const ac = audio(); if(ac && !audio.unlocked){ tone(440,0,0.02,'sine',0.0002); audio.unlocked = true; } } }, true);
+
+/* ---------- Anti double-touche ---------- */
+const lastTap = {};
+function tapPoint(t){
+  const now = Date.now();
+  if(C.antiDouble && now - (lastTap[t] || 0) < 500){ toast('Double touche ignorée'); return; }
+  lastTap[t] = now;
+  addPoint(t);
+}
 if(!S.cur) S.cur = {seq:'', start:null};
 let board = false;
 let clockId = null, toId = null, timeout = null;
@@ -250,11 +305,12 @@ function checkSet(){
   S.home.points = S.away.points = 0;
   S.home.timeouts = S.away.timeouts = 2;
   if(S[w].sets >= C.setsToWin){
-    S.winner = w; stopClock();
+    S.winner = w; stopClock(); SND.match();
     message(`${esc(name(w))} remporte le match`, `Score final : ${S.home.sets} – ${S.away.sets} (${S.sets.map(s=>s.home+'-'+s.away).join(', ')}).`);
   } else {
     S.swapped = !S.swapped;
-    message(`${esc(name(w))} remporte le set ${S.sets.length}`, `${h} – ${a}. Les équipes changent de côté.`);
+    SND.set();
+    startBreak(`${name(w)} remporte le set ${S.sets.length} (${h} – ${a})`);
   }
   buzz(200);
 }
@@ -432,11 +488,29 @@ function stopClock(){ clearInterval(clockId); clockId = null; }
 function callTimeout(t){
   if(timeout || S[t].timeouts<=0) return;
   snap(); S[t].timeouts--; commit(); buzz(40);
-  timeout = { team:t, left:C.timeoutSec };
-  renderTimeout();
-  toId = setInterval(() => { timeout.left--; if(timeout.left<=0) endTimeout(); else renderTimeout(); }, 1000);
+  timeout = { kind:'to', team:t, left:C.timeoutSec };
+  runTimer();
 }
-function endTimeout(){ clearInterval(toId); toId=null; timeout=null; renderTimeout(); buzz(300); }
+function startBreak(info){
+  if(timeout) endTimeout(true);
+  const sec = Math.max(1, Math.round((C.breakMin || 3) * 60));
+  timeout = { kind:'break', left:sec, info, next:setNo() };
+  runTimer();
+}
+function runTimer(){
+  clearInterval(toId);
+  renderTimeout();
+  toId = setInterval(() => {
+    if(!timeout) return;
+    timeout.left--;
+    if(timeout.kind==='break' && timeout.left===30){ SND.warn(); buzz(400); }
+    if(timeout.left<=0) endTimeout(); else renderTimeout();
+  }, 1000);
+}
+function endTimeout(silent){
+  clearInterval(toId); toId=null; timeout=null; renderTimeout();
+  if(!silent){ SND.buzzer(); buzz(300); }
+}
 
 async function share(){
   let txt = `${C.homeName} ${S.home.sets} – ${S.away.sets} ${C.awayName}`;
@@ -492,6 +566,12 @@ function settingsView(){
   <label>Points par set <input id="s_pts" type="number" inputmode="numeric" min="5" max="50" value="${C.pointsPerSet}"></label>
   <label>Points au tie-break <input id="s_tb" type="number" inputmode="numeric" min="5" max="50" value="${C.tieBreak}"></label>
   <label>Temps mort (secondes) <input id="s_to" type="number" inputmode="numeric" min="10" max="120" value="${C.timeoutSec}"></label>
+  <label>Pause entre les sets (min) <input id="s_br" type="number" inputmode="decimal" min="0.5" max="15" step="0.5" value="${C.breakMin}"></label>
+  <label>Couleur ${esc(C.homeName)} <input id="s_hc" type="color" value="${C.homeColor}"></label>
+  <label>Couleur ${esc(C.awayName)} <input id="s_ac" type="color" value="${C.awayColor}"></label>
+  <p class="hint" style="margin:6px 0 0 !important"><button type="button" data-m="resetcolors" style="color:var(--home);font-weight:600;padding:4px 0">Couleurs par défaut</button></p>
+  <label>Sons <input id="s_snd" type="checkbox" ${C.sound?'checked':''}></label>
+  <label>Anti double-touche <input id="s_dbl" type="checkbox" ${C.antiDouble?'checked':''}></label>
   <label>Vibrations <input id="s_vib" type="checkbox" ${C.vibrate?'checked':''}></label>
   <p class="hint">Touchez un score pour ajouter un point, glissez vers le bas pour en retirer un. Touchez un joueur sur le terrain pour changer son numéro. Touchez le chrono pour le lancer ou le mettre en pause.</p>
   <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="settings">Enregistrer</button></div>`);
@@ -502,6 +582,7 @@ sheet.addEventListener('click', e => {
   const b = e.target.closest('[data-m]'); if(!b) return;
   const m = b.dataset.m;
   if(m==='pdf'){ close(); exportPDF(); return; }
+  if(m==='resetcolors'){ document.getElementById('s_hc').value = DEF.homeColor; document.getElementById('s_ac').value = DEF.awayColor; return; }
   if(m==='new'){ history=[]; stopClock(); elapsed=0; store.set('elapsed',0); if(timeout) endTimeout();
     const keep = { h:S.home.rot, a:S.away.rot }; S = fresh(); S.home.rot = keep.h; S.away.rot = keep.a; commit(); }
   if(m==='player'){ const t=b.dataset.team, p=+b.dataset.pos; const v=parseInt(document.getElementById('pnum').value,10);
@@ -514,7 +595,14 @@ sheet.addEventListener('click', e => {
     C.tieBreak = clamp(document.getElementById('s_tb').value,5,50,15);
     C.timeoutSec = clamp(document.getElementById('s_to').value,10,120,30);
     C.vibrate = document.getElementById('s_vib').checked;
-    store.set('settings', C); render();
+    C.breakMin = Math.min(15, Math.max(0.5, parseFloat(document.getElementById('s_br').value) || 3));
+    C.sound = document.getElementById('s_snd').checked;
+    C.antiDouble = document.getElementById('s_dbl').checked;
+    C.homeColor = document.getElementById('s_hc').value || DEF.homeColor;
+    C.awayColor = document.getElementById('s_ac').value || DEF.awayColor;
+    store.set('settings', C); applyColors(); render();
+    const light = [C.homeColor, C.awayColor].filter(c => lum(c) > 0.45);
+    if(light.length) setTimeout(() => toast('Couleur très claire : les chiffres blancs seront peu lisibles'), 350);
   }
   close();
 });
@@ -599,9 +687,18 @@ window.addEventListener('resize', fitNames);
 function renderTimeout(){
   const el = document.getElementById('timeout');
   if(!timeout){ el.classList.remove('show'); el.innerHTML=''; return; }
-  el.innerHTML = `<div class="tt" style="color:${col(timeout.team)}">Temps mort – ${esc(name(timeout.team))}</div>
-    ${seg(timeout.left)}
-    <button style="background:${col(timeout.team)}" data-act="endto">Reprendre le jeu</button>`;
+  if(timeout.kind==='break'){
+    const m = Math.floor(timeout.left/60), sec = timeout.left%60, warn = timeout.left<=30;
+    el.innerHTML = `<div class="tt">Pause entre les sets</div>
+      <div class="tinfo">${esc(timeout.info)}<br>Set ${timeout.next} ensuite · les équipes changent de côté</div>
+      <div class="bclock${warn?' warn':''}">${seg(m,1)}<span class="colon"><i></i><i></i></span>${seg(sec)}</div>
+      ${warn ? '<div class="tinfo warn">Reprise dans moins de 30 secondes</div>' : ''}
+      <button style="background:var(--home)" data-act="endto">Reprendre maintenant</button>`;
+  } else {
+    el.innerHTML = `<div class="tt" style="color:${col(timeout.team)}">Temps mort – ${esc(name(timeout.team))}</div>
+      ${seg(timeout.left)}
+      <button style="background:${col(timeout.team)}" data-act="endto">Reprendre le jeu</button>`;
+  }
   el.classList.add('show');
 }
 document.getElementById('timeout').addEventListener('click', e => { if(e.target.closest('[data-act="endto"]')) endTimeout(); });
@@ -638,13 +735,13 @@ window.addEventListener('pointerup', e => {
   if(!down) return;
   const dy = e.clientY - down.y, dx = e.clientX - down.x, t = down.t; down = null;
   if(dy > 40) removePoint(t);
-  else if(dy < -40) addPoint(t);
-  else if(Math.abs(dy) < 15 && Math.abs(dx) < 15) addPoint(t);
+  else if(dy < -40) tapPoint(t);
+  else if(Math.abs(dy) < 15 && Math.abs(dx) < 15) tapPoint(t);
 });
 window.addEventListener('pointercancel', () => down = null);
 document.addEventListener('keydown', e => {
   const c = e.target.closest && e.target.closest('[data-score]');
-  if(c && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); addPoint(c.dataset.score); }
+  if(c && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); tapPoint(c.dataset.score); }
 });
 document.addEventListener('keydown', e => {
   if((e.metaKey||e.ctrlKey) && e.key==='z'){ e.preventDefault(); undo(); }
