@@ -200,7 +200,7 @@ const seg = (v, n=2) => `<div class="seg">${String(v).padStart(n,'0').split('').
 
 /* ---------- État ---------- */
 const DEF = { homeName:"Domicile", awayName:"Visiteurs", pointsPerSet:25, tieBreak:15, setsToWin:3, timeoutSec:30, vibrate:true,
-  breakMin:3, sound:true, antiDouble:true, homeColor:"#136F8C", awayColor:"#C2185B" };
+  breakMin:3, autoClock:true, sound:true, antiDouble:true, homeColor:"#136F8C", awayColor:"#C2185B" };
 const team = () => ({ points:0, sets:0, timeouts:2, rot:[1,2,3,4,5,6] }); // rot[0] = poste 1
 const fresh = () => ({ home:team(), away:team(), serving:'home', swapped:false, sets:[], winner:null, cur:{seq:'',start:null}, startedAt:null });
 
@@ -283,6 +283,7 @@ function addPoint(t){
   if(!S.cur.start) S.cur.start = { home:S.home.rot.slice(), away:S.away.rot.slice(), serving:S.serving, at:elapsed };
   if(!S.startedAt) S.startedAt = Date.now();
   S.cur.seq += t==='home' ? 'h' : 'a';
+  if(C.autoClock && !clockId && !timeout) startClock();
   S[t].points++;
   if(S.serving !== t){ S.serving = t; S[t].rot = cw(S[t].rot); } // side-out
   checkSet();
@@ -488,13 +489,14 @@ function stopClock(){ clearInterval(clockId); clockId = null; }
 function callTimeout(t){
   if(timeout || S[t].timeouts<=0) return;
   snap(); S[t].timeouts--; commit(); buzz(40);
-  timeout = { kind:'to', team:t, left:C.timeoutSec };
+  timeout = { kind:'to', team:t, left:C.timeoutSec, resume: autoPause() };
   runTimer();
 }
 function startBreak(info){
   if(timeout) endTimeout(true);
   const sec = Math.max(1, Math.round((C.breakMin || 3) * 60));
-  timeout = { kind:'break', left:sec, info, next:setNo() };
+  timeout = { kind:'break', left:sec, info, next:setNo(), resume:false };
+  autoPause();
   runTimer();
 }
 function runTimer(){
@@ -507,8 +509,14 @@ function runTimer(){
     if(timeout.left<=0) endTimeout(); else renderTimeout();
   }, 1000);
 }
+function autoPause(){
+  if(!C.autoClock || !clockId) return false;
+  stopClock(); render(); return true;
+}
 function endTimeout(silent){
+  const resume = timeout && timeout.resume;
   clearInterval(toId); toId=null; timeout=null; renderTimeout();
+  if(resume && C.autoClock && !clockId && !S.winner){ startClock(); render(); }
   if(!silent){ SND.buzzer(); buzz(300); }
 }
 
@@ -570,10 +578,11 @@ function settingsView(){
   <label>Couleur ${esc(C.homeName)} <input id="s_hc" type="color" value="${C.homeColor}"></label>
   <label>Couleur ${esc(C.awayName)} <input id="s_ac" type="color" value="${C.awayColor}"></label>
   <p class="hint" style="margin:6px 0 0 !important"><button type="button" data-m="resetcolors" style="color:var(--home);font-weight:600;padding:4px 0">Couleurs par défaut</button></p>
+  <label>Chrono automatique <input id="s_auto" type="checkbox" ${C.autoClock?'checked':''}></label>
   <label>Sons <input id="s_snd" type="checkbox" ${C.sound?'checked':''}></label>
   <label>Anti double-touche <input id="s_dbl" type="checkbox" ${C.antiDouble?'checked':''}></label>
   <label>Vibrations <input id="s_vib" type="checkbox" ${C.vibrate?'checked':''}></label>
-  <p class="hint">Touchez un score pour ajouter un point, glissez vers le bas pour en retirer un. Touchez un joueur sur le terrain pour changer son numéro. Touchez le chrono pour le lancer ou le mettre en pause.</p>
+  <p class="hint">Touchez un score pour ajouter un point, glissez vers le bas pour en retirer un. Touchez un joueur sur le terrain pour changer son numéro. Le chrono du match démarre au premier point et se met en pause pendant les temps morts et entre les sets (désactivable ci-dessus) ; touchez-le pour le lancer ou l'arrêter à la main.</p>
   <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="settings">Enregistrer</button></div>`);
 }
 const clamp = (v,a,b,d) => { v = parseInt(v,10); return isNaN(v) ? d : Math.min(b, Math.max(a, v)); };
@@ -597,6 +606,7 @@ sheet.addEventListener('click', e => {
     C.vibrate = document.getElementById('s_vib').checked;
     C.breakMin = Math.min(15, Math.max(0.5, parseFloat(document.getElementById('s_br').value) || 3));
     C.sound = document.getElementById('s_snd').checked;
+    C.autoClock = document.getElementById('s_auto').checked;
     C.antiDouble = document.getElementById('s_dbl').checked;
     C.homeColor = document.getElementById('s_hc').value || DEF.homeColor;
     C.awayColor = document.getElementById('s_ac').value || DEF.awayColor;
