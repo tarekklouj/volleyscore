@@ -68,11 +68,13 @@ button:disabled{ opacity:.35; }
 .card{ container-type:size; height:100%; min-width:0; border-radius:26px; color:#fff; display:flex; align-items:center; justify-content:center;
   touch-action:none; position:relative; transition:transform .08s; }
 .card:active{ transform:scale(.98); }
-.card .seg{ height:62cqh; gap:6cqw; }
+.card .seg{ height:58cqh; gap:6cqw; margin-bottom:6cqh; }
 
 /* barres d'outils */
 .bar{ display:flex; justify-content:space-between; align-items:center; padding:0 6px; }
 .bar button{ padding:4px; display:flex; }
+.bar .ico{ width:26px; height:26px; }
+.serve .ico, .bar .serve .ico{ width:30px; height:30px; }
 .serve{ color:var(--muted); }
 .serve .ico{ width:32px; height:32px; }
 
@@ -112,6 +114,26 @@ button:disabled{ opacity:.35; }
 .row b.h{ color:var(--home); } .row b.a{ color:var(--away); }
 .hint{ font-size:14px; margin-top:14px !important; }
 
+.sp{ position:absolute; bottom:5%; left:50%; transform:translateX(-50%); background:#fff; font-weight:700;
+  font-size:clamp(11px,3.3vw,15px); padding:3px 10px; border-radius:999px; white-space:nowrap; letter-spacing:.02em;
+  animation:pulse 1.4s ease-in-out infinite; }
+@keyframes pulse{ 50%{ transform:translateX(-50%) scale(1.07); } }
+#board{ position:fixed; inset:0; z-index:5; background:var(--bg); display:none; flex-direction:column; gap:10px;
+  padding:calc(10px + env(safe-area-inset-top,0px)) calc(10px + env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) calc(10px + env(safe-area-inset-left,0px)); }
+#board.show{ display:flex; }
+.bd-top{ display:flex; align-items:center; justify-content:center; position:relative; height:clamp(34px,7vh,64px); flex:none; }
+.bd-top .clock{ height:100%; padding:6px 14px; }
+.bd-exit{ position:absolute; right:0; top:50%; transform:translateY(-50%); padding:8px; color:var(--muted); }
+.bd-main{ flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+@media (orientation:portrait){ .bd-main{ grid-template-columns:1fr; grid-template-rows:1fr 1fr; } }
+.bd-team{ container-type:size; position:relative; border-radius:24px; color:#fff; display:flex; flex-direction:column;
+  align-items:center; justify-content:space-between; padding:5cqh 4cqw; touch-action:none; min-height:0; }
+.bd-name{ font-weight:700; font-size:min(10cqh,9cqw); line-height:1.1; text-align:center; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bd-pts .seg{ height:min(56cqh,68cqw); gap:5cqw; }
+.bd-foot{ display:flex; align-items:center; gap:4cqw; font-size:min(7cqh,6cqw); font-weight:600; }
+.bd-foot .seg{ height:min(11cqh,10cqw); }
+.bd-foot .ico{ width:min(11cqh,10cqw); height:min(11cqh,10cqw); }
+.bd-team .sp{ top:auto; bottom:22%; font-size:min(6cqh,5cqw); padding:.2em .8em; }
 #timeout{ flex-direction:column; gap:26px; color:#fff; }
 #timeout .tt{ font-size:22px; font-weight:600; }
 #timeout .seg{ height:150px; gap:14px; }
@@ -126,6 +148,7 @@ button:disabled{ opacity:.35; }
 </head>
 <body>
 <div id="app"></div>
+<div id="board" aria-label="Mode tableau d'affichage"></div>
 <div class="overlay" id="modal"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
 <div class="overlay" id="timeout"></div>
 <div class="toast" id="toast"></div>
@@ -134,6 +157,9 @@ button:disabled{ opacity:.35; }
 (() => {
 /* ---------- Icônes ---------- */
 const I = {
+  tv:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  pdf:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
+  x:'<path d="M18 6 6 18M6 6l12 12"/>',
   plus:'<path d="M12 5v14M5 12h14"/>',
   undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   swap:'<path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/>',
@@ -167,7 +193,7 @@ const seg = (v, n=2) => `<div class="seg">${String(v).padStart(n,'0').split('').
 /* ---------- État ---------- */
 const DEF = { homeName:"Domicile", awayName:"Visiteurs", pointsPerSet:25, tieBreak:15, setsToWin:3, timeoutSec:30, vibrate:true };
 const team = () => ({ points:0, sets:0, timeouts:2, rot:[1,2,3,4,5,6] }); // rot[0] = poste 1
-const fresh = () => ({ home:team(), away:team(), serving:'home', swapped:false, sets:[], winner:null });
+const fresh = () => ({ home:team(), away:team(), serving:'home', swapped:false, sets:[], winner:null, cur:{seq:'',start:null}, startedAt:null });
 
 const store = {
   get(k){ try{ const v = localStorage.getItem('vs_'+k); return v ? JSON.parse(v) : null; }catch(e){ return null; } },
@@ -177,6 +203,8 @@ let S = store.get('match') || fresh();
 let C = Object.assign({}, DEF, store.get('settings') || {});
 let elapsed = store.get('elapsed') || 0;
 let history = [];
+if(!S.cur) S.cur = {seq:'', start:null};
+let board = false;
 let clockId = null, toId = null, timeout = null;
 
 const other = t => t==='home' ? 'away' : 'home';
@@ -196,6 +224,10 @@ function commit(){ store.set('match', S); render(); }
 function addPoint(t){
   if(S.winner) return;
   snap();
+  if(!S.cur) S.cur = {seq:'', start:null};
+  if(!S.cur.start) S.cur.start = { home:S.home.rot.slice(), away:S.away.rot.slice(), serving:S.serving, at:elapsed };
+  if(!S.startedAt) S.startedAt = Date.now();
+  S.cur.seq += t==='home' ? 'h' : 'a';
   S[t].points++;
   if(S.serving !== t){ S.serving = t; S[t].rot = cw(S[t].rot); } // side-out
   checkSet();
@@ -203,13 +235,17 @@ function addPoint(t){
 }
 function removePoint(t){
   if(S[t].points<=0) return;
-  snap(); S[t].points--; commit(); buzz();
+  snap(); S[t].points--;
+  if(S.cur){ const c = t==='home'?'h':'a', i = S.cur.seq.lastIndexOf(c); if(i>=0) S.cur.seq = S.cur.seq.slice(0,i) + S.cur.seq.slice(i+1); }
+  commit(); buzz();
 }
 function checkSet(){
   const h=S.home.points, a=S.away.points;
   if(Math.max(h,a) < target() || Math.abs(h-a) < 2) return;
   const w = h>a ? 'home' : 'away';
-  S.sets.push({home:h, away:a});
+  S.sets.push({ home:h, away:a, seq:(S.cur&&S.cur.seq)||'', start:(S.cur&&S.cur.start)||null, end:elapsed,
+    to:{ home:2-S.home.timeouts, away:2-S.away.timeouts } });
+  S.cur = { seq:'', start:null };
   S[w].sets++;
   S.home.points = S.away.points = 0;
   S.home.timeouts = S.away.timeouts = 2;
@@ -222,7 +258,169 @@ function checkSet(){
   }
   buzz(200);
 }
+function pointType(t){
+  if(S.winner) return '';
+  const p = S[t].points, o = S[other(t)].points;
+  if(p+1 >= target() && p+1-o >= 2) return S[t].sets === C.setsToWin-1 ? 'Balle de match' : 'Balle de set';
+  return '';
+}
 function undo(){ const p = history.pop(); if(p){ S = JSON.parse(p); commit(); buzz(); } }
+
+function openBoard(){
+  board = true; render(); wake();
+  try{ const d = document.documentElement; if(d.requestFullscreen && !document.fullscreenElement) d.requestFullscreen().catch(()=>{}); }catch(e){}
+}
+function closeBoard(){
+  board = false; render();
+  try{ if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{}); }catch(e){}
+}
+function renderBoard(){
+  const el = document.getElementById('board');
+  if(!board){ el.classList.remove('show'); el.innerHTML=''; return; }
+  const L = S.swapped ? 'away' : 'home', R = other(L);
+  const side = t => {
+    const pt = pointType(t);
+    return `<div class="bd-team" style="background:${col(t)}" data-score="${t}" role="button" tabindex="0" aria-label="${esc(name(t))} : ${S[t].points} points">
+      <div class="bd-name">${esc(name(t))}</div>
+      <div class="bd-pts">${seg(S[t].points)}</div>
+      ${pt ? `<span class="sp" style="color:${col(t)}">${pt}</span>` : ''}
+      <div class="bd-foot"><span>Sets</span>${seg(S[t].sets,1)}${S.serving===t ? ico('ball') : ''}</div>
+    </div>`;
+  };
+  el.innerHTML = `<div class="bd-top">
+      <button class="clock ${clockId?'':'paused'}" id="clock2" data-act="clock" aria-label="Chrono du match">${clockHTML()}</button>
+      <button class="bd-exit" data-act="exitboard" aria-label="Quitter le mode tableau">${ico('x')}</button>
+    </div>
+    <div class="bd-main">${side(L)}${side(R)}</div>`;
+  el.classList.add('show');
+}
+document.getElementById('board').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if(!b) return;
+  if(b.dataset.act==='exitboard') closeBoard();
+  if(b.dataset.act==='clock') toggleClock();
+});
+
+/* ---------- Feuille de match PDF ---------- */
+function loadJsPDF(){
+  if(window.jspdf) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    sc.onload = res; sc.onerror = () => rej(new Error('load'));
+    document.head.appendChild(sc);
+  });
+}
+const mmss = sec => `${Math.floor(sec/60)} min ${String(sec%60).padStart(2,'0')} s`;
+const latin = str => String(str).replace(/[\u2013\u2014]/g,'-').replace(/[^\x00-\xFF]/g,'?');
+async function exportPDF(){
+  toast('Préparation du PDF…');
+  try{ await loadJsPDF(); }
+  catch(e){ message('PDF indisponible', 'Une connexion internet est nécessaire la première fois pour créer la feuille de match.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const W = 210, M = 14, CW = W - 2*M;
+  const css = getComputedStyle(document.documentElement);
+  const rgb = v => { const h = (css.getPropertyValue(v).trim() || '#888888').replace('#',''); return [0,2,4].map(i => parseInt(h.substr(i,2),16)); };
+  const cH = rgb('--home'), cA = rgb('--away');
+  let y = 18;
+  const need = h => { if(y + h > 282){ doc.addPage(); y = 18; } };
+  const txt = (t, x, yy, o) => doc.text(latin(t), x, yy, o);
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(30);
+  txt('Feuille de match', M, y);
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(120);
+  txt('VolleyScore', W-M, y, { align:'right' });
+  y += 8;
+  const start = S.startedAt ? new Date(S.startedAt) : new Date();
+  doc.setTextColor(60);
+  txt(`Date : ${start.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}  -  début ${start.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}`, M, y); y += 5;
+  txt(`Durée de jeu : ${mmss(elapsed)}`, M, y); y += 5;
+  txt(`Format : ${C.setsToWin} set${C.setsToWin>1?'s':''} gagnant${C.setsToWin>1?'s':''}, ${C.pointsPerSet} points par set, tie-break à ${C.tieBreak}`, M, y); y += 9;
+
+  const boxW = (CW - 6) / 2;
+  [[ 'home', cH, M ], [ 'away', cA, M + boxW + 6 ]].forEach(([t, c, x]) => {
+    doc.setFillColor(...c); doc.roundedRect(x, y, boxW, 26, 3, 3, 'F');
+    doc.setTextColor(255); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+    txt(t==='home' ? 'DOMICILE' : 'VISITEURS', x+5, y+7);
+    doc.setFontSize(15); txt(name(t), x+5, y+15, { maxWidth: boxW-30 });
+    doc.setFontSize(28); txt(String(S[t].sets), x+boxW-6, y+19, { align:'right' });
+  });
+  y += 32;
+  doc.setTextColor(30); doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  txt(S.winner ? `Vainqueur : ${name(S.winner)} (${S.home.sets} - ${S.away.sets})` : `Match en cours : ${S.home.sets} - ${S.away.sets} en sets`, M, y);
+  y += 9;
+
+  const sets = S.sets.map(st => ({ ...st, live:false }));
+  if(!S.winner && (S.home.points || S.away.points)) sets.push({ home:S.home.points, away:S.away.points, seq:(S.cur&&S.cur.seq)||'',
+    start:(S.cur&&S.cur.start)||null, end:elapsed, to:{ home:2-S.home.timeouts, away:2-S.away.timeouts }, live:true });
+
+  const cols = [ ['Set',16], [name('home'),38], [name('away'),38], ['Temps morts',30], ['1er service',36], ['Durée',24] ];
+  need(10 + sets.length*7);
+  doc.setFillColor(238,238,241); doc.rect(M, y-5, CW, 7, 'F');
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(60);
+  let x = M + 2; cols.forEach(([h,w]) => { txt(h, x, y, { maxWidth:w-3 }); x += w; });
+  y += 7; doc.setFont('helvetica','normal'); doc.setTextColor(30);
+  if(!sets.length){ txt('Aucun point joué.', M+2, y); y += 7; }
+  sets.forEach((st, i) => {
+    const dur = st.start ? mmss(Math.max(0, st.end - st.start.at)) : '-';
+    const vals = [ `${i+1}${st.live?' *':''}`, String(st.home), String(st.away),
+      st.to ? `${st.to.home} / ${st.to.away}` : '-', st.start ? name(st.start.serving) : '-', dur ];
+    x = M + 2;
+    vals.forEach((v, k) => {
+      if(k===1 || k===2){ doc.setFont('helvetica', (k===1) === (st.home>st.away) ? 'bold' : 'normal'); doc.setTextColor(...(k===1?cH:cA)); }
+      else { doc.setFont('helvetica','normal'); doc.setTextColor(30); }
+      txt(v, x, y, { maxWidth: cols[k][1]-3 }); x += cols[k][1];
+    });
+    doc.setDrawColor(225); doc.line(M, y+2.5, W-M, y+2.5);
+    y += 7;
+  });
+  if(sets.some(st => st.live)){ doc.setFontSize(8); doc.setTextColor(120); txt('* set en cours', M+2, y); y += 5; }
+  y += 4;
+
+  const roman = ['I','II','III','IV','V','VI'];
+  sets.forEach((st, i) => {
+    need(30);
+    doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.setTextColor(30);
+    txt(`Set ${i+1}${st.live?' (en cours)':''} : ${st.home} - ${st.away}`, M, y); y += 6;
+    doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(60);
+    if(st.start){
+      ['home','away'].forEach(t => { txt(`Composition de départ ${name(t)} : ` + st.start[t].map((n,k) => `${roman[k]}=${n}`).join('   '), M, y, { maxWidth:CW }); y += 5; });
+    }
+    if(st.seq){
+      let h = 0, a = 0;
+      const prog = st.seq.split('').map(c => { c==='h' ? h++ : a++; return `${h}-${a}`; }).join('  ');
+      const lines = doc.splitTextToSize(latin(`Évolution du score (${name('home')} - ${name('away')}) : ${prog}`), CW);
+      need(lines.length*4.2 + 4);
+      doc.setTextColor(90); doc.text(lines, M, y); y += lines.length*4.2;
+    } else { txt('Détail des points non disponible pour ce set.', M, y); y += 5; }
+    y += 5;
+  });
+
+  need(38);
+  y += 4;
+  doc.setFontSize(9); doc.setTextColor(60); doc.setDrawColor(170);
+  const sw = (CW - 12) / 3;
+  ['Arbitre', `Capitaine ${name('home')}`, `Capitaine ${name('away')}`].forEach((l, k) => {
+    const sx = M + k*(sw+6);
+    txt(l, sx, y, { maxWidth: sw }); doc.rect(sx, y+2, sw, 22);
+  });
+  const pages = doc.getNumberOfPages();
+  for(let pg=1; pg<=pages; pg++){
+    doc.setPage(pg); doc.setFontSize(8); doc.setTextColor(150);
+    txt(`Généré par VolleyScore le ${new Date().toLocaleString('fr-FR')}  -  page ${pg}/${pages}`, W/2, 292, { align:'center' });
+  }
+
+  const slug = v => latin(v).toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'equipe';
+  const fname = `feuille-match-${slug(C.homeName)}-${slug(C.awayName)}-${start.toISOString().slice(0,10)}.pdf`;
+  const blob = doc.output('blob');
+  try{
+    const file = new File([blob], fname, { type:'application/pdf' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){ await navigator.share({ files:[file], title:'Feuille de match' }); return; }
+  }catch(e){ if(e.name==='AbortError') return; }
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = fname; document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
 
 function toggleClock(){ clockId ? stopClock() : startClock(); render(); }
 function startClock(){
@@ -279,7 +477,7 @@ function historyView(){
   const m = Math.floor(elapsed/60), s = elapsed%60;
   open(`<h2>${esc(C.homeName)} – ${esc(C.awayName)}</h2>${rows}
   <p class="hint">Durée du match : ${m} min ${String(s).padStart(2,'0')} s</p>
-  <div class="actions"><button class="primary" data-m="close">OK</button></div>`);
+  <div class="actions"><button data-m="pdf">Feuille PDF</button><button class="primary" data-m="close">OK</button></div>`);
 }
 function settingsView(){
   open(`<h2>Réglages</h2>
@@ -303,6 +501,7 @@ const clamp = (v,a,b,d) => { v = parseInt(v,10); return isNaN(v) ? d : Math.min(
 sheet.addEventListener('click', e => {
   const b = e.target.closest('[data-m]'); if(!b) return;
   const m = b.dataset.m;
+  if(m==='pdf'){ close(); exportPDF(); return; }
   if(m==='new'){ history=[]; stopClock(); elapsed=0; store.set('elapsed',0); if(timeout) endTimeout();
     const keep = { h:S.home.rot, a:S.away.rot }; S = fresh(); S.home.rot = keep.h; S.away.rot = keep.a; commit(); }
   if(m==='player'){ const t=b.dataset.team, p=+b.dataset.pos; const v=parseInt(document.getElementById('pnum').value,10);
@@ -341,7 +540,7 @@ function half(t, layout){
 function clockHTML(){
   return `${seg(Math.floor(elapsed/60)%100)}<span class="colon"><i></i><i></i></span>${seg(elapsed%60)}`;
 }
-function renderClock(){ const c = document.getElementById('clock'); if(c) c.innerHTML = clockHTML(); }
+function renderClock(){ ['clock','clock2'].forEach(id => { const c = document.getElementById(id); if(c) c.innerHTML = clockHTML(); }); }
 
 function render(){
   const L = S.swapped ? 'away' : 'home', R = other(L);
@@ -358,14 +557,16 @@ function render(){
     <div class="tname" style="color:${col(R)}">${esc(name(R))}</div>
   </div>
   <div class="cards">
-    <div class="card" style="background:${col(L)}" data-score="${L}" role="button" tabindex="0" aria-label="${esc(name(L))} : ${S[L].points} points. Touchez pour ajouter un point.">${seg(S[L].points)}</div>
-    <div class="card" style="background:${col(R)}" data-score="${R}" role="button" tabindex="0" aria-label="${esc(name(R))} : ${S[R].points} points. Touchez pour ajouter un point.">${seg(S[R].points)}</div>
+    <div class="card" style="background:${col(L)}" data-score="${L}" role="button" tabindex="0" aria-label="${esc(name(L))} : ${S[L].points} points. Touchez pour ajouter un point.">${seg(S[L].points)}${pointType(L)?`<span class="sp" style="color:${col(L)}">${pointType(L)}</span>`:''}</div>
+    <div class="card" style="background:${col(R)}" data-score="${R}" role="button" tabindex="0" aria-label="${esc(name(R))} : ${S[R].points} points. Touchez pour ajouter un point.">${seg(S[R].points)}${pointType(R)?`<span class="sp" style="color:${col(R)}">${pointType(R)}</span>`:''}</div>
   </div>
   <div class="bar">
     <button data-act="new" aria-label="Nouveau match">${ico('plus')}</button>
     <button data-act="undo" aria-label="Annuler" ${history.length?'':'disabled'}>${ico('undo')}</button>
     <button data-act="swap" aria-label="Changer de côté">${ico('swap')}</button>
     <button data-act="history" aria-label="Historique des sets">${ico('list')}</button>
+    <button data-act="pdf" aria-label="Feuille de match PDF">${ico('pdf')}</button>
+    <button data-act="board" aria-label="Mode tableau d'affichage">${ico('tv')}</button>
     <button data-act="share" aria-label="Partager le score">${ico('share')}</button>
     <button data-act="settings" aria-label="Réglages">${ico('gear')}</button>
   </div>
@@ -383,6 +584,7 @@ function render(){
     ${half(R, RIGHT_LAYOUT)}
   </div>`;
   fitNames();
+  renderBoard();
 }
 function fitNames(){
   document.querySelectorAll('.tname').forEach(el => {
@@ -415,6 +617,8 @@ app.addEventListener('click', e => {
     case 'undo': undo(); break;
     case 'swap': S.swapped = !S.swapped; commit(); buzz(); break;
     case 'history': historyView(); break;
+    case 'pdf': exportPDF(); break;
+    case 'board': openBoard(); break;
     case 'share': share(); break;
     case 'settings': settingsView(); break;
     case 'rot': snap(); S[t].rot = b.dataset.dir==='cw' ? cw(S[t].rot) : ccw(S[t].rot); commit(); buzz(); break;
@@ -425,7 +629,7 @@ app.addEventListener('click', e => {
 
 // Score : toucher = +1, glisser vers le bas = −1, vers le haut = +1
 let down = null;
-app.addEventListener('pointerdown', e => {
+document.addEventListener('pointerdown', e => {
   const c = e.target.closest('[data-score]'); if(!c) return;
   down = { t:c.dataset.score, x:e.clientX, y:e.clientY };
   wake();
@@ -438,13 +642,13 @@ window.addEventListener('pointerup', e => {
   else if(Math.abs(dy) < 15 && Math.abs(dx) < 15) addPoint(t);
 });
 window.addEventListener('pointercancel', () => down = null);
-app.addEventListener('keydown', e => {
-  const c = e.target.closest('[data-score]');
+document.addEventListener('keydown', e => {
+  const c = e.target.closest && e.target.closest('[data-score]');
   if(c && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); addPoint(c.dataset.score); }
 });
 document.addEventListener('keydown', e => {
   if((e.metaKey||e.ctrlKey) && e.key==='z'){ e.preventDefault(); undo(); }
-  if(e.key==='Escape') close();
+  if(e.key==='Escape'){ if(modal.classList.contains('show')) close(); else if(board) closeBoard(); }
 });
 
 render();
