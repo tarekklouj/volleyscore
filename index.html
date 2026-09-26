@@ -286,6 +286,7 @@ function addPoint(t){
   if(C.autoClock && !clockId && !timeout) startClock();
   S[t].points++;
   if(S.serving !== t){ S.serving = t; S[t].rot = cw(S[t].rot); } // side-out
+  checkTieBreakSwitch(t);
   checkSet();
   commit(); buzz();
 }
@@ -314,6 +315,18 @@ function checkSet(){
     startBreak(`${name(w)} remporte le set ${S.sets.length} (${h} – ${a})`);
   }
   buzz(200);
+}
+// Règle du 5e set : changement de côté quand une équipe atteint 8 points (la moitié du tie-break)
+function checkTieBreakSwitch(t){
+  const half = Math.ceil(C.tieBreak / 2);
+  if(setNo() !== C.setsToWin*2-1 || S.cur.switched) return;
+  if(S[t].points !== half || S[other(t)].points >= half) return;
+  if(S[t].points >= target()) return;
+  S.cur.switched = true;
+  S.swapped = !S.swapped;
+  SND.warn(); buzz(400);
+  setTimeout(() => message('Changement de côté',
+    `${esc(name(t))} atteint ${half} points au set décisif (${S.home.points} – ${S.away.points}). Les équipes changent de côté, le score, le service et les rotations sont conservés.`), 0);
 }
 function pointType(t){
   if(S.winner) return '';
