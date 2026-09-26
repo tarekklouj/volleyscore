@@ -68,7 +68,7 @@ button:disabled{ opacity:.35; }
 .card{ container-type:size; height:100%; min-width:0; border-radius:26px; color:#fff; display:flex; align-items:center; justify-content:center;
   touch-action:none; position:relative; transition:transform .08s; }
 .card:active{ transform:scale(.98); }
-.card .seg{ height:58cqh; gap:6cqw; margin-bottom:6cqh; }
+.card .seg{ height:54cqh; gap:6cqw; margin-top:4cqh; }
 
 /* barres d'outils */
 .bar{ display:flex; justify-content:space-between; align-items:center; padding:0 6px; }
@@ -115,6 +115,11 @@ button:disabled{ opacity:.35; }
 .row b.h{ color:var(--home); } .row b.a{ color:var(--away); }
 .hint{ font-size:14px; margin-top:14px !important; }
 
+.srv{ position:absolute; top:6%; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:5px;
+  font-size:clamp(11px,3.2vw,14px); font-weight:700; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+.srv.on{ background:#fff; }
+.srv.next{ background:rgba(255,255,255,.2); color:#fff; font-weight:600; }
+.srv .ico{ width:1.2em; height:1.2em; }
 .sp{ position:absolute; bottom:5%; left:50%; transform:translateX(-50%); background:#fff; font-weight:700;
   font-size:clamp(11px,3.3vw,15px); padding:3px 10px; border-radius:999px; white-space:nowrap; letter-spacing:.02em;
   animation:pulse 1.4s ease-in-out infinite; }
@@ -133,6 +138,7 @@ button:disabled{ opacity:.35; }
 .bd-pts .seg{ height:min(56cqh,68cqw); gap:5cqw; }
 .bd-foot{ display:flex; align-items:center; gap:4cqw; font-size:min(7cqh,6cqw); font-weight:600; }
 .bd-foot .seg{ height:min(11cqh,10cqw); }
+.bd-foot .num{ font-size:min(9cqh,8cqw); font-weight:800; }
 .bd-foot .ico{ width:min(11cqh,10cqw); height:min(11cqh,10cqw); }
 .bd-team .sp{ top:auto; bottom:22%; font-size:min(6cqh,5cqw); padding:.2em .8em; }
 #timeout{ flex-direction:column; gap:26px; color:#fff; }
@@ -328,6 +334,11 @@ function checkTieBreakSwitch(t){
   setTimeout(() => message('Changement de côté',
     `${esc(name(t))} atteint ${half} points au set décisif (${S.home.points} – ${S.away.points}). Les équipes changent de côté, le score, le service et les rotations sont conservés.`), 0);
 }
+function serverInfo(t){
+  if(S.winner) return '';
+  if(S.serving === t) return `<span class="srv on" style="color:${col(t)}">${ico('ball')}Au service : n°${S[t].rot[0]}</span>`;
+  return `<span class="srv next" title="Servira en cas de side-out">Si side-out : n°${S[t].rot[1]}</span>`;
+}
 function pointType(t){
   if(S.winner) return '';
   const p = S[t].points, o = S[other(t)].points;
@@ -354,7 +365,7 @@ function renderBoard(){
       <div class="bd-name">${esc(name(t))}</div>
       <div class="bd-pts">${seg(S[t].points)}</div>
       ${pt ? `<span class="sp" style="color:${col(t)}">${pt}</span>` : ''}
-      <div class="bd-foot"><span>Sets</span>${seg(S[t].sets,1)}${S.serving===t ? ico('ball') : ''}</div>
+      <div class="bd-foot"><span>Sets</span>${seg(S[t].sets,1)}${S.serving===t && !S.winner ? ico('ball') + `<span class="num">n°${S[t].rot[0]}</span>` : ''}</div>
     </div>`;
   };
   el.innerHTML = `<div class="bd-top">
@@ -668,8 +679,8 @@ function render(){
     <div class="tname" style="color:${col(R)}">${esc(name(R))}</div>
   </div>
   <div class="cards">
-    <div class="card" style="background:${col(L)}" data-score="${L}" role="button" tabindex="0" aria-label="${esc(name(L))} : ${S[L].points} points. Touchez pour ajouter un point.">${seg(S[L].points)}${pointType(L)?`<span class="sp" style="color:${col(L)}">${pointType(L)}</span>`:''}</div>
-    <div class="card" style="background:${col(R)}" data-score="${R}" role="button" tabindex="0" aria-label="${esc(name(R))} : ${S[R].points} points. Touchez pour ajouter un point.">${seg(S[R].points)}${pointType(R)?`<span class="sp" style="color:${col(R)}">${pointType(R)}</span>`:''}</div>
+    <div class="card" style="background:${col(L)}" data-score="${L}" role="button" tabindex="0" aria-label="${esc(name(L))} : ${S[L].points} points. Touchez pour ajouter un point.">${serverInfo(L)}${seg(S[L].points)}${pointType(L)?`<span class="sp" style="color:${col(L)}">${pointType(L)}</span>`:''}</div>
+    <div class="card" style="background:${col(R)}" data-score="${R}" role="button" tabindex="0" aria-label="${esc(name(R))} : ${S[R].points} points. Touchez pour ajouter un point.">${serverInfo(R)}${seg(S[R].points)}${pointType(R)?`<span class="sp" style="color:${col(R)}">${pointType(R)}</span>`:''}</div>
   </div>
   <div class="bar">
     <button data-act="new" aria-label="Nouveau match">${ico('plus')}</button>
