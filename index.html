@@ -506,7 +506,6 @@ async function exportPDF(){
 }
 
 function openSheet(){
-  if(/github\.io$|^localhost$|^127\./.test(location.hostname)){ location.href = 'matchs.html'; return; }
   const u = C.sheetUrl;
   if(!/^https:\/\//i.test(u || '')){ toast('Lien invalide, vérifiez les Réglages'); return; }
   const w = window.open(u, '_blank', 'noopener');
