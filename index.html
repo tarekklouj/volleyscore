@@ -506,6 +506,7 @@ async function exportPDF(){
 }
 
 function openSheet(){
+  if(/github\.io$|^localhost$|^127\./.test(location.hostname)){ location.href = 'matchs.html'; return; }
   const u = C.sheetUrl;
   if(!/^https:\/\//i.test(u || '')){ toast('Lien invalide, vérifiez les Réglages'); return; }
   const w = window.open(u, '_blank', 'noopener');
@@ -697,7 +698,7 @@ function render(){
     <button data-act="new" aria-label="Nouveau match">${ico('plus')}</button>
     <button data-act="undo" aria-label="Annuler" ${history.length?'':'disabled'}>${ico('undo')}</button>
     <button data-act="swap" aria-label="Changer de côté">${ico('swap')}</button>
-    ${C.sheetUrl ? `<button data-act="sheet" aria-label="Matchs et présences (Google Sheets)">${ico('sheet')}</button>` : ''}
+    <button data-act="sheet" aria-label="Matchs et présences">${ico('sheet')}</button>
     <button data-act="history" aria-label="Historique des sets">${ico('list')}</button>
     <button data-act="pdf" aria-label="Feuille de match PDF">${ico('pdf')}</button>
     <button data-act="board" aria-label="Mode tableau d'affichage">${ico('tv')}</button>

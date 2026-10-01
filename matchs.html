@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f1f1f">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
+<title>Matchs – VC Clupea</title>
+<style>:root{
+  --home:#136F8C; --away:#C2185B;
+  --bg:#eceef1; --panel:#ffffff; --panel2:#f5f6f8; --ink:#1c1c1e; --muted:#6b6b73; --line:rgba(0,0,0,.08);
+  --ok:#1f9d55; --ko:#d64545; --maybe:#d89614;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#1f1f1f; --panel:#2a2a2c; --panel2:#323235; --ink:#fff; --muted:#a0a0a8; --line:rgba(255,255,255,.09);
+    --ok:#34c47a; --ko:#ff6b6b; --maybe:#f2b33d; }
+}
+:root[data-theme="dark"]{ --bg:#1f1f1f; --panel:#2a2a2c; --panel2:#323235; --ink:#fff; --muted:#a0a0a8; --line:rgba(255,255,255,.09);
+  --ok:#34c47a; --ko:#ff6b6b; --maybe:#f2b33d; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); background:var(--bg); }
+*,*::before,*::after{ box-sizing:border-box; }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.45; -webkit-tap-highlight-color:transparent; }
+a{ color:var(--home); }
+.wrap{ max-width:900px; margin:0 auto; padding:0 14px 40px; }
+header.top{ position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:var(--bg); padding:10px 0 8px; }
+.brand{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.brand h1{ margin:0; font-size:22px; letter-spacing:-.01em; }
+.brand .season{ color:var(--muted); font-size:14px; }
+nav.tabs{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; }
+nav.tabs::-webkit-scrollbar{ display:none; }
+nav.tabs a{ flex:none; text-decoration:none; color:var(--ink); background:var(--panel); padding:8px 14px; border-radius:999px; font-weight:600; font-size:15px; }
+nav.tabs a.on{ background:var(--home); color:#fff; }
+h2{ font-size:18px; margin:22px 0 10px; }
+.card{ background:var(--panel); border-radius:18px; padding:16px; }
+.muted{ color:var(--muted); }
+.badge{ display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; vertical-align:middle; }
+.b-home{ background:var(--home); color:#fff; }
+.b-away{ background:var(--away); color:#fff; }
+.b-warn{ background:color-mix(in srgb,var(--maybe) 18%,transparent); color:var(--maybe); }
+.b-ko{ background:color-mix(in srgb,var(--ko) 15%,transparent); color:var(--ko); }
+.b-ok{ background:color-mix(in srgb,var(--ok) 15%,transparent); color:var(--ok); }
+.chips{ display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 12px; }
+.chips button{ font:inherit; font-size:14px; border:0; background:var(--panel); color:var(--ink); padding:7px 13px; border-radius:999px; cursor:pointer; }
+.chips button.on{ background:var(--ink); color:var(--bg); }
+button:focus-visible, a:focus-visible{ outline:3px solid var(--home); outline-offset:2px; }
+.foot{ margin-top:28px; font-size:14px; color:var(--muted); }
+.foot p{ margin:6px 0; }
+.scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:18px; background:var(--panel); }
+.notice{ background:color-mix(in srgb,var(--maybe) 14%,var(--panel)); border-radius:14px; padding:10px 14px; font-size:14px; margin-top:10px; }
+
+.hero{ background:var(--home); color:#fff; border-radius:22px; padding:18px; }
+.hero .k{ font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; opacity:.85; }
+.hero .vs{ font-size:22px; font-weight:800; margin:6px 0 4px; line-height:1.2; }
+.hero .when{ font-size:17px; font-weight:600; }
+.hero .cd{ display:inline-block; margin-top:10px; background:rgba(255,255,255,.18); padding:4px 12px; border-radius:999px; font-weight:700; font-size:14px; }
+.hero a{ color:#fff; }
+.hero .hall{ font-size:14px; opacity:.92; margin-top:8px; }
+.month{ font-size:14px; font-weight:700; color:var(--muted); text-transform:capitalize; margin:18px 4px 8px; }
+.m{ display:grid; grid-template-columns:56px 1fr; gap:12px; background:var(--panel); border-radius:16px; padding:12px; margin-bottom:8px; align-items:start; }
+.m.past{ opacity:.62; }
+.m.next{ outline:2px solid var(--home); }
+.day{ text-align:center; background:var(--panel2); border-radius:12px; padding:6px 0; }
+.day b{ display:block; font-size:22px; line-height:1.1; }
+.day span{ font-size:12px; color:var(--muted); text-transform:uppercase; }
+.teams{ font-weight:600; line-height:1.3; }
+.teams .me{ font-weight:800; }
+.meta{ display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; font-size:14px; color:var(--muted); margin-top:4px; }
+.hall{ font-size:14px; margin-top:4px; }
+.m .hall a{ color:var(--muted); }
+.hero .badge{ background:#fff; color:var(--home); }
+.res{ font-weight:800; color:var(--ink); }
+</style>
+</head><body>
+<div class="wrap">
+<header class="top">
+  <div class="brand"><h1>📅 VC Clupea</h1><span class="season">Heren 3B · 2026-2027</span></div>
+  <nav class="tabs" aria-label="Pages"><a href="index.html">Score</a><a href="matchs.html" class="on" aria-current="page">Matchs</a><a href="presences.html">Présences</a></nav>
+</header>
+<main id="main"></main>
+<div class="foot" id="foot"></div>
+</div>
+<script>
+const DATA = {"matches": [{"serie": "Heren 3B", "num": "H3B-1", "date": "2026-09-10", "time": "21:00", "home": "VC Atlantis Sportief", "away": "VC Clupea", "hall": "W04 Sporthal De Warande, Warandelaan 14B, 9230 Wetteren", "status": "postponed"}, {"serie": "Heren 3B", "num": "H3B-7", "date": "2026-09-15", "time": "21:00", "home": "VC Clupea", "away": "Volley Aaigem", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-18", "date": "2026-09-22", "time": "21:00", "home": "VC Clupea", "away": "Orix-Martinus", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-22", "date": "2026-09-29", "time": "21:00", "home": "KVC Vokajap Ninove B", "away": "VC Clupea", "hall": "N03 Stedelijke sporthal, Parklaan 15, 9400 Ninove", "status": ""}, {"serie": "Heren 3B", "num": "H3B-33", "date": "2026-10-15", "time": "20:30", "home": "Abacus Burst A", "away": "VC Clupea", "hall": "E07 Sporthal Steenberg, Oudenaardesteenweg 458, 9420 Erpe-Mere", "status": "Forait pour Clupea"}, {"serie": "Heren 3B", "num": "H3B-51", "date": "2026-10-29", "time": "21:00", "home": "VC Atlantis Sportief", "away": "VC Clupea", "hall": "W04 Sporthal De Warande, Warandelaan 14B, 9230 Wetteren", "status": ""}, {"serie": "Heren 3B", "num": "H3B-51", "date": "2026-11-17", "time": "21:00", "home": "VC Clupea", "away": "VC Zebra", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-56", "date": "2026-11-28", "time": "18:00", "home": "Lappetem", "away": "VC Clupea", "hall": "L03 Sporthal Durmehal, Sportlaan 2, 9160 Lokeren", "status": ""}, {"serie": "Heren 3B", "num": "H3B-64", "date": "2026-12-01", "time": "21:00", "home": "VC Clupea", "away": "Vo-Znat Buggenhout", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-43", "date": "2026-12-06", "time": "10:00", "home": "VV Rhode 2", "away": "VC Clupea", "hall": "O09 De Kluize, Sportstraat 5, 9860 Scheldewindeke (Oosterzele)", "status": ""}, {"serie": "Heren 3B", "num": "H3B-67", "date": "2026-12-08", "time": "21:00", "home": "VC Clupea", "away": "VC Atlantis Sportief", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-78", "date": "2026-12-17", "time": "20:30", "home": "Volley Aaigem", "away": "VC Clupea", "hall": "E07 Sporthal Steenberg, Oudenaardesteenweg 458, 9420 Erpe-Mere", "status": ""}, {"serie": "Heren 3B", "num": "H3B-83", "date": "2027-01-12", "time": "20:00", "home": "Orix-Martinus", "away": "VC Clupea", "hall": "E08 Sportcentrum Schotte, Kapellekensbaan 8, 9320 Erembodegem", "status": ""}, {"serie": "Heren 3B", "num": "H3B-90", "date": "2027-01-19", "time": "21:00", "home": "VC Clupea", "away": "KVC Vokajap Ninove B", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-101", "date": "2027-02-16", "time": "21:00", "home": "VC Clupea", "away": "Abacus Burst A", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": "Forait pour Clupea"}, {"serie": "Heren 3B", "num": "H3B-112", "date": "2027-03-02", "time": "21:00", "home": "VC Clupea", "away": "VV Rhode 2", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-116", "date": "2027-03-10", "time": "20:30", "home": "VC Zebra", "away": "VC Clupea", "hall": "W04 Sporthal De Warande, Warandelaan 14B, 9230 Wetteren", "status": ""}, {"serie": "Heren 3B", "num": "H3B-123", "date": "2027-03-16", "time": "21:00", "home": "VC Clupea", "away": "Lappetem", "hall": "M11 Sportcentrum Faluintjes Moorsel", "status": ""}, {"serie": "Heren 3B", "num": "H3B-128", "date": "2027-03-27", "time": "19:00", "home": "Vo-Znat Buggenhout", "away": "VC Clupea", "hall": "B07 Sportcentrum, Platteput 14, 9255 BUGGENHOUT", "status": ""}, {"serie": "Heren 3B", "num": "H3B-43", "date": "2026-04-04", "time": "10:00", "home": "VV Rhode 2", "away": "VC Clupea", "hall": "O09 De Kluize, Sportstraat 5, 9860 Scheldewindeke (Oosterzele)", "status": ""}], "info": {"calendar": "https://www.volleyscores.be/calendar/team/108094", "email": "heren3b.vobog@gmail.com"}, "pres": {"dates": ["2026-09-10", "2026-09-15", "2026-09-22", "2026-09-29", "2026-10-15", "2026-10-29", "2026-11-17", "2026-11-28", "2026-12-01", "2026-12-06", "2026-12-08", "2026-12-17", "2027-01-12", "2027-01-19", "2027-02-16", "2027-03-02", "2027-03-10", "2027-03-16", "2027-03-27"], "res": ["annulé", "3-0", "3-0", "", "", "changed from 10-09", "", "", "", "", "", "", "", "", "", "", "", "", ""]}};
+const SNAP = "1er octobre 2026";
+const CLUB = "VC Clupea";
+let SET = {};
+try{ SET = JSON.parse(localStorage.getItem('vs_settings')||'{}')||{}; }catch(e){}
+if(SET.homeColor) document.documentElement.style.setProperty('--home', SET.homeColor);
+if(SET.awayColor) document.documentElement.style.setProperty('--away', SET.awayColor);
+const SHEET = SET.sheetUrl !== undefined ? SET.sheetUrl : "https://docs.google.com/spreadsheets/d/1Bn9pXDo9P2yCf-vW4lnqFUerIFyICed5Gp9ZizYNqAo/edit?usp=sharing";
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toD = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const TODAY = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+const fDate = (s, o) => toD(s).toLocaleDateString('fr-FR', o || { weekday:'short', day:'numeric', month:'short' });
+const short = s => { const d = toD(s); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); };
+const foot = html => { document.getElementById('foot').innerHTML = html + `<p>Données du fichier « VC_Clupea_volleyscores_be » au ${SNAP}.${SHEET ? ` <a href="${esc(SHEET)}" target="_blank" rel="noopener">Modifier dans Google Sheets</a>` : ''}</p>`; };
+
+const L = DATA.matches.map((m, i) => {
+  const me = m.home === CLUB ? 'home' : 'away';
+  const opp = me === 'home' ? m.away : m.home;
+  const st = (m.status || '').toLowerCase();
+  let status = '';
+  if(st.includes('postpon')) status = '<span class="badge b-warn">Reporté</span>';
+  else if(st.includes('fora') || st.includes('forfa')) status = '<span class="badge b-ok">Forfait pour Clupea</span>';
+  else if(m.status) status = `<span class="badge b-warn">${esc(m.status)}</span>`;
+  const pi = DATA.pres.dates.indexOf(m.date);
+  const r = pi >= 0 ? DATA.pres.res[pi] : '';
+  const score = /^\d\s*-\s*\d$/.test(r) ? r : '';
+  return { ...m, i, me, opp, status, score, postponed: st.includes('postpon'), d: m.date ? toD(m.date) : null };
+});
+const upcoming = L.filter(m => m.d && m.d >= TODAY && !m.postponed);
+const next = upcoming.slice().sort((a,b) => a.d - b.d)[0];
+let filter = 'all';
+const maps = h => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(h.replace(/^[A-Z]\d{2}\s+/, ''));
+function hero(){
+  if(!next) return '<div class="card">Plus de match à venir cette saison.</div>';
+  const days = Math.round((next.d - TODAY) / 864e5);
+  const cd = days === 0 ? "C'est aujourd'hui !" : days === 1 ? 'Demain' : `Dans ${days} jours`;
+  return `<section class="hero" aria-label="Prochain match">
+    <div class="k">Prochain match · ${next.me==='home' ? 'à domicile' : 'à l\'extérieur'}</div>
+    <div class="vs">${esc(next.home)} – ${esc(next.away)}</div>
+    <div class="when">${fDate(next.date, { weekday:'long', day:'numeric', month:'long' })} à ${esc(next.time)}</div>
+    <div class="hall">📍 <a href="${maps(next.hall)}" target="_blank" rel="noopener">${esc(next.hall)}</a></div>
+    <span class="cd">${cd}</span> ${next.status ? next.status.replace('badge ', 'badge ') : ''}
+  </section>`;
+}
+function list(){
+  let rows = L.filter(m => filter==='all' || (filter==='home' ? m.me==='home' : filter==='away' ? m.me==='away' : filter==='next' ? (m.d && m.d >= TODAY) : (m.d && m.d < TODAY)));
+  let html = '', month = '';
+  rows.forEach(m => {
+    const mo = m.d ? m.d.toLocaleDateString('fr-FR', { month:'long', year:'numeric' }) : 'Date inconnue';
+    if(mo !== month){ html += `<div class="month">${mo}</div>`; month = mo; }
+    const past = m.d && m.d < TODAY;
+    const t = m.me==='home' ? `<span class="me">${esc(m.home)}</span> – ${esc(m.away)}` : `${esc(m.home)} – <span class="me">${esc(m.away)}</span>`;
+    html += `<article class="m${past?' past':''}${m===next?' next':''}">
+      <div class="day"><b>${m.d ? m.d.getDate() : '?'}</b><span>${m.d ? m.d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') : ''}</span></div>
+      <div>
+        <div class="teams">${t}</div>
+        <div class="meta"><span>🕘 ${esc(m.time)}</span>
+          <span class="badge ${m.me==='home'?'b-home':'b-away'}">${m.me==='home'?'Domicile':'Extérieur'}</span>
+          ${m.score ? `<span class="res">Résultat ${esc(m.score)}</span>` : ''}${m.status}
+          <span>${esc(m.num)}</span></div>
+        <div class="hall"><a href="${maps(m.hall)}" target="_blank" rel="noopener">${esc(m.hall)}</a></div>
+      </div></article>`;
+  });
+  return html || '<p class="muted">Aucun match pour ce filtre.</p>';
+}
+function render(){
+  const F = [['all','Tous'],['next','À venir'],['past','Joués'],['home','Domicile'],['away','Extérieur']];
+  document.getElementById('main').innerHTML = hero() +
+    `<h2>Calendrier</h2><div class="chips" role="group" aria-label="Filtrer">${F.map(([k,l]) => `<button data-f="${k}" class="${filter===k?'on':''}" aria-pressed="${filter===k}">${l}</button>`).join('')}</div>` + list();
+}
+document.getElementById('main').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(b){ filter = b.dataset.f; render(); } });
+render();
+foot(`<p>📅 <a href="${esc(DATA.info.calendar)}" target="_blank" rel="noopener">Ajouter les matchs à mon calendrier (volleyscores.be)</a></p>
+  <p>📄 Feuille de match scannée à envoyer à <a href="mailto:${esc(DATA.info.email)}">${esc(DATA.info.email)}</a></p>`);
+
+if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body></html>
