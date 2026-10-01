@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1f1f1f">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
+<title>Finances – VC Clupea</title>
+<style>:root{
+  --home:#136F8C; --away:#C2185B;
+  --bg:#eceef1; --panel:#ffffff; --panel2:#f5f6f8; --ink:#1c1c1e; --muted:#6b6b73; --line:rgba(0,0,0,.08);
+  --ok:#1f9d55; --ko:#d64545; --maybe:#d89614;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#1f1f1f; --panel:#2a2a2c; --panel2:#323235; --ink:#fff; --muted:#a0a0a8; --line:rgba(255,255,255,.09);
+    --ok:#34c47a; --ko:#ff6b6b; --maybe:#f2b33d; }
+}
+:root[data-theme="dark"]{ --bg:#1f1f1f; --panel:#2a2a2c; --panel2:#323235; --ink:#fff; --muted:#a0a0a8; --line:rgba(255,255,255,.09);
+  --ok:#34c47a; --ko:#ff6b6b; --maybe:#f2b33d; }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); background:var(--bg); }
+*,*::before,*::after{ box-sizing:border-box; }
+body{ margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.45; -webkit-tap-highlight-color:transparent; }
+a{ color:var(--home); }
+.wrap{ max-width:900px; margin:0 auto; padding:0 14px 40px; }
+header.top{ position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:var(--bg); padding:10px 0 8px; }
+.brand{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.brand h1{ margin:0; font-size:22px; letter-spacing:-.01em; }
+.brand .season{ color:var(--muted); font-size:14px; }
+nav.tabs{ display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; }
+nav.tabs::-webkit-scrollbar{ display:none; }
+nav.tabs a{ flex:none; text-decoration:none; color:var(--ink); background:var(--panel); padding:8px 14px; border-radius:999px; font-weight:600; font-size:15px; }
+nav.tabs a.on{ background:var(--home); color:#fff; }
+h2{ font-size:18px; margin:22px 0 10px; }
+.card{ background:var(--panel); border-radius:18px; padding:16px; }
+.muted{ color:var(--muted); }
+.badge{ display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:999px; white-space:nowrap; vertical-align:middle; }
+.b-home{ background:var(--home); color:#fff; }
+.b-away{ background:var(--away); color:#fff; }
+.b-warn{ background:color-mix(in srgb,var(--maybe) 18%,transparent); color:var(--maybe); }
+.b-ko{ background:color-mix(in srgb,var(--ko) 15%,transparent); color:var(--ko); }
+.b-ok{ background:color-mix(in srgb,var(--ok) 15%,transparent); color:var(--ok); }
+.chips{ display:flex; gap:6px; flex-wrap:wrap; margin:6px 0 12px; }
+.chips button{ font:inherit; font-size:14px; border:0; background:var(--panel); color:var(--ink); padding:7px 13px; border-radius:999px; cursor:pointer; }
+.chips button.on{ background:var(--ink); color:var(--bg); }
+button:focus-visible, a:focus-visible{ outline:3px solid var(--home); outline-offset:2px; }
+.foot{ margin-top:28px; font-size:14px; color:var(--muted); }
+.foot p{ margin:6px 0; }
+.scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:18px; background:var(--panel); }
+.notice{ background:color-mix(in srgb,var(--maybe) 14%,var(--panel)); border-radius:14px; padding:10px 14px; font-size:14px; margin-top:10px; }
+
+.kpi{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.kpi div{ background:var(--panel); border-radius:16px; padding:14px 10px; }
+.kpi span{ font-size:13px; color:var(--muted); }
+.kpi b{ display:block; font-size:clamp(18px,5.5vw,26px); margin-top:2px; font-variant-numeric:tabular-nums; }
+.kpi .net{ background:var(--home); color:#fff; }
+.kpi .net span{ color:rgba(255,255,255,.85); }
+table{ border-collapse:collapse; width:100%; min-width:560px; font-size:14px; }
+th,td{ padding:10px 12px; border-bottom:1px solid var(--line); text-align:left; }
+th{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.in{ color:var(--ok); font-weight:700; } .out{ color:var(--ko); font-weight:700; }
+.pay{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+.pay div{ background:var(--panel); border-radius:14px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+</style>
+</head><body>
+<div class="wrap">
+<header class="top">
+  <div class="brand"><h1>💶 VC Clupea</h1><span class="season">Heren 3B · 2026-2027</span></div>
+  <nav class="tabs" aria-label="Pages"><a href="index.html">Score</a><a href="matchs.html">Matchs</a><a href="presences.html">Présences</a><a href="finances.html" class="on" aria-current="page">Finances</a></nav>
+</header>
+<main id="main"></main>
+<div class="foot" id="foot"></div>
+</div>
+<script>
+const DATA = {"fin": [{"desc": "Frais adhesion 2026-2027", "who": "Tarek klouj", "date": null, "debit": 100.0, "credit": null}, {"desc": "Frais adhesion 2026-2027", "who": "Islem Mtaallah", "date": null, "debit": 100.0, "credit": null}, {"desc": "Frais adhesion 2026-2027", "who": "Skander Mtaallah", "date": null, "debit": 100.0, "credit": null}, {"desc": "Frais adhesion 2026-2027", "who": "Zied Attia", "date": null, "debit": 100.0, "credit": null}, {"desc": "Frais adhesion 2026-2027", "who": "Mohamed Khraief", "date": null, "debit": 100.0, "credit": null}, {"desc": "Frais adhesion 2026-2027", "who": "Achref Lengliz", "date": null, "debit": 100.0, "credit": null}, {"desc": "Achat 3 Ballon chez Decathlon", "who": "Achref Lengliz", "date": "2026-09-06", "debit": null, "credit": 156.99}, {"desc": "Achat sac ballons Decathlon", "who": "Achref Lengliz", "date": "2026-09-06", "debit": null, "credit": 9.99}, {"desc": "Reservation de la salle", "who": "Islem Mtaallah", "date": null, "debit": null, "credit": null}, {"desc": "Inscription VOBOG Championnat", "who": "Islem Mtaallah", "date": null, "debit": null, "credit": 60.0}, {"desc": "Inscription VOBOG Coupe", "who": "Islem Mtaallah", "date": null, "debit": null, "credit": 10.0}, {"desc": "Assurances", "who": "Islem Mtaallah", "date": null, "debit": null, "credit": null}, {"desc": "Achat ballon 2ememain", "who": "Achref Lengliz", "date": "2026-09-22", "debit": null, "credit": 40.0}], "net": 323.02, "roster": ["Tarek Klouj", "Achref Lengliz", "Islem Mtaallah", "Skander Mtaallah", "Mohamed Khraief", "Zied Attia", "Nader Attia", "Ali Gader"]};
+const SNAP = "1er octobre 2026";
+const CLUB = "VC Clupea";
+let SET = {};
+try{ SET = JSON.parse(localStorage.getItem('vs_settings')||'{}')||{}; }catch(e){}
+if(SET.homeColor) document.documentElement.style.setProperty('--home', SET.homeColor);
+if(SET.awayColor) document.documentElement.style.setProperty('--away', SET.awayColor);
+const SHEET = SET.sheetUrl !== undefined ? SET.sheetUrl : "https://docs.google.com/spreadsheets/d/1Bn9pXDo9P2yCf-vW4lnqFUerIFyICed5Gp9ZizYNqAo/edit?usp=sharing";
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toD = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const TODAY = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+const fDate = (s, o) => toD(s).toLocaleDateString('fr-FR', o || { weekday:'short', day:'numeric', month:'short' });
+const short = s => { const d = toD(s); return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); };
+const foot = html => { document.getElementById('foot').innerHTML = html + `<p>Données du fichier « VC_Clupea_volleyscores_be » au ${SNAP}.${SHEET ? ` <a href="${esc(SHEET)}" target="_blank" rel="noopener">Modifier dans Google Sheets</a>` : ''}</p>`; };
+
+const eur = v => v==null ? '' : v.toLocaleString('fr-BE', { style:'currency', currency:'EUR' });
+const F = DATA.fin;
+const tin = F.reduce((a,r) => a + (r.debit||0), 0), tout = F.reduce((a,r) => a + (r.credit||0), 0);
+const net = Math.round((tin - tout)*100)/100;
+const roster = (DATA.roster || []);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const paid = new Set(F.filter(r => /adh[eé]sion/i.test(r.desc) && r.debit).map(r => norm(r.who)));
+const todo = F.filter(r => r.debit==null && r.credit==null);
+document.getElementById('main').innerHTML = `
+  <div class="kpi"><div><span>Entrées</span><b class="in">${eur(tin)}</b></div><div><span>Dépenses</span><b class="out">${eur(tout)}</b></div><div class="net"><span>Net caisse</span><b>${eur(net)}</b></div></div>
+  ${DATA.net!=null && Math.abs(DATA.net - net) > 0.005 ? `<div class="notice">Le net calculé (${eur(net)}) diffère de celui du fichier (${eur(DATA.net)}).</div>` : ''}
+  <h2>Cotisations 2026-2027</h2>
+  <div class="pay">${roster.map(n => `<div><span>${esc(n)}</span>${paid.has(norm(n)) ? '<span class="badge b-ok">Payée</span>' : '<span class="badge b-warn">Non enregistrée</span>'}</div>`).join('')}</div>
+  <h2>Opérations</h2>
+  <div class="scroll"><table><thead><tr><th>Description</th><th>Personne</th><th>Date</th><th class="num">Entrée</th><th class="num">Dépense</th></tr></thead><tbody>
+  ${F.map(r => `<tr><td>${esc(r.desc)}${r.debit==null && r.credit==null ? ' <span class="badge b-warn">montant à compléter</span>' : ''}</td><td>${esc(r.who)}</td>
+    <td>${r.date ? fDate(r.date, {day:'2-digit', month:'2-digit', year:'numeric'}) : '<span class="muted">–</span>'}</td>
+    <td class="num in">${eur(r.debit)}</td><td class="num out">${eur(r.credit)}</td></tr>`).join('')}
+  </tbody></table></div>
+  ${todo.length ? `<div class="notice">${todo.length} opération${todo.length>1?'s':''} sans montant : ${todo.map(r => esc(r.desc)).join(', ')}.</div>` : ''}`;
+foot(`<p>Dans le fichier, la colonne « Débit » correspond aux entrées (cotisations) et « Crédit » aux dépenses.</p>`);
+
+if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body></html>

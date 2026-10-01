@@ -1,6 +1,6 @@
 // Garde l'app en mémoire sur le téléphone pour qu'elle marche sans internet.
-const CACHE = 'volleyscore-v10';
-const FILES = ['./', './index.html', './matchs.html', './presences.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
+const CACHE = 'volleyscore-v11';
+const FILES = ['./', './index.html', './matchs.html', './presences.html', './finances.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
