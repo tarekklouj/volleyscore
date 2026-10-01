@@ -73,7 +73,8 @@ button:disabled{ opacity:.35; }
 /* barres d'outils */
 .bar{ display:flex; justify-content:space-between; align-items:center; padding:0 6px; }
 .bar button{ padding:4px; display:flex; }
-.bar .ico{ width:26px; height:26px; }
+.bar .ico{ width:25px; height:25px; }
+.bar button{ padding:3px; }
 .serve .ico, .bar .serve .ico{ width:30px; height:30px; }
 .serve{ color:var(--muted); }
 .serve .ico{ width:32px; height:32px; }
@@ -102,7 +103,7 @@ button:disabled{ opacity:.35; }
   border-bottom:1px solid color-mix(in srgb,var(--muted) 30%,transparent); font-size:16px; }
 .sheet input,.sheet select{ font:inherit; font-size:16px; color:var(--ink); background:var(--bg); border:0;
   border-radius:10px; padding:8px 10px; min-width:0; }
-.sheet input[type=text]{ width:55%; }
+.sheet input[type=text], .sheet input[type=url]{ width:55%; }
 .sheet input[type=number]{ width:80px; text-align:center; }
 .sheet input[type=color]{ width:52px; height:36px; padding:3px; cursor:pointer; }
 .sheet input[type=checkbox]{ width:22px; height:22px; accent-color:var(--home); }
@@ -171,6 +172,7 @@ button:disabled{ opacity:.35; }
 (() => {
 /* ---------- Icônes ---------- */
 const I = {
+  sheet:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/>',
   tv:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
   pdf:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
   x:'<path d="M18 6 6 18M6 6l12 12"/>',
@@ -206,7 +208,7 @@ const seg = (v, n=2) => `<div class="seg">${String(v).padStart(n,'0').split('').
 
 /* ---------- État ---------- */
 const DEF = { homeName:"Domicile", awayName:"Visiteurs", pointsPerSet:25, tieBreak:15, setsToWin:3, timeoutSec:30, vibrate:true,
-  breakMin:3, autoClock:true, sound:true, antiDouble:true, homeColor:"#136F8C", awayColor:"#C2185B" };
+  breakMin:3, autoClock:true, sheetUrl:"https://docs.google.com/spreadsheets/d/1Bn9pXDo9P2yCf-vW4lnqFUerIFyICed5Gp9ZizYNqAo/edit?usp=sharing", sound:true, antiDouble:true, homeColor:"#136F8C", awayColor:"#C2185B" };
 const team = () => ({ points:0, sets:0, timeouts:2, rot:[1,2,3,4,5,6] }); // rot[0] = poste 1
 const fresh = () => ({ home:team(), away:team(), serving:'home', swapped:false, sets:[], winner:null, cur:{seq:'',start:null}, startedAt:null });
 
@@ -503,6 +505,12 @@ async function exportPDF(){
   setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
+function openSheet(){
+  const u = C.sheetUrl;
+  if(!/^https:\/\//i.test(u || '')){ toast('Lien invalide, vérifiez les Réglages'); return; }
+  const w = window.open(u, '_blank', 'noopener');
+  if(!w) location.href = u;
+}
 function toggleClock(){ clockId ? stopClock() : startClock(); render(); }
 function startClock(){
   clockId = setInterval(() => { elapsed++; store.set('elapsed', elapsed); renderClock(); }, 1000);
@@ -598,6 +606,7 @@ function settingsView(){
   <label>Points par set <input id="s_pts" type="number" inputmode="numeric" min="5" max="50" value="${C.pointsPerSet}"></label>
   <label>Points au tie-break <input id="s_tb" type="number" inputmode="numeric" min="5" max="50" value="${C.tieBreak}"></label>
   <label>Temps mort (secondes) <input id="s_to" type="number" inputmode="numeric" min="10" max="120" value="${C.timeoutSec}"></label>
+  <label>Lien matchs et présences <input id="s_sheet" type="url" inputmode="url" placeholder="https://docs.google.com/…" value="${esc(C.sheetUrl||'')}"></label>
   <label>Pause entre les sets (min) <input id="s_br" type="number" inputmode="decimal" min="0.5" max="15" step="0.5" value="${C.breakMin}"></label>
   <label>Couleur ${esc(C.homeName)} <input id="s_hc" type="color" value="${C.homeColor}"></label>
   <label>Couleur ${esc(C.awayName)} <input id="s_ac" type="color" value="${C.awayColor}"></label>
@@ -631,6 +640,8 @@ sheet.addEventListener('click', e => {
     C.breakMin = Math.min(15, Math.max(0.5, parseFloat(document.getElementById('s_br').value) || 3));
     C.sound = document.getElementById('s_snd').checked;
     C.autoClock = document.getElementById('s_auto').checked;
+    const su = document.getElementById('s_sheet').value.trim();
+    C.sheetUrl = (su === '' || /^https:\/\//i.test(su)) ? su : C.sheetUrl;
     C.antiDouble = document.getElementById('s_dbl').checked;
     C.homeColor = document.getElementById('s_hc').value || DEF.homeColor;
     C.awayColor = document.getElementById('s_ac').value || DEF.awayColor;
@@ -686,6 +697,7 @@ function render(){
     <button data-act="new" aria-label="Nouveau match">${ico('plus')}</button>
     <button data-act="undo" aria-label="Annuler" ${history.length?'':'disabled'}>${ico('undo')}</button>
     <button data-act="swap" aria-label="Changer de côté">${ico('swap')}</button>
+    ${C.sheetUrl ? `<button data-act="sheet" aria-label="Matchs et présences (Google Sheets)">${ico('sheet')}</button>` : ''}
     <button data-act="history" aria-label="Historique des sets">${ico('list')}</button>
     <button data-act="pdf" aria-label="Feuille de match PDF">${ico('pdf')}</button>
     <button data-act="board" aria-label="Mode tableau d'affichage">${ico('tv')}</button>
@@ -749,6 +761,7 @@ app.addEventListener('click', e => {
     case 'swap': S.swapped = !S.swapped; commit(); buzz(); break;
     case 'history': historyView(); break;
     case 'pdf': exportPDF(); break;
+    case 'sheet': openSheet(); break;
     case 'board': openBoard(); break;
     case 'share': share(); break;
     case 'settings': settingsView(); break;
