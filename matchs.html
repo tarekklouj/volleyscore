@@ -100,6 +100,11 @@ button:focus-visible, a:focus-visible{ outline:3px solid var(--home); outline-of
 .m .hall a{ color:var(--muted); }
 .hero .badge{ background:#fff; color:var(--home); }
 .res{ font-weight:800; color:var(--ink); }
+
+.b-ff{ background:var(--ink); color:var(--bg); }
+.ffnote{ font-size:13px; font-style:italic; }
+.m.ff{ background:repeating-linear-gradient(135deg,var(--panel) 0 14px,var(--panel2) 14px 28px); }
+.m.ff .teams{ text-decoration:line-through; text-decoration-thickness:1px; }
 </style>
 </head><body>
 <div class="wrap">
@@ -192,17 +197,18 @@ function prep(){ L = DATA.matches.map((m, i) => {
   const st = (m.status || '').toLowerCase();
   let status = '';
   if(st.includes('postpon')) status = '<span class="badge b-warn">Reporté</span>';
-  else if(st.includes('fora') || st.includes('forfa')) status = '<span class="badge b-ok">Forfait pour Clupea</span>';
+  else if(st.includes('fora') || st.includes('forfa')) status = `<span class="badge b-ff">⚑ Forfait</span> <span class="ffnote">${esc(m.status.replace(/^fora?it/i,'Forfait'))} – match non joué</span>`;
   else if(m.status) status = `<span class="badge b-warn">${esc(m.status)}</span>`;
   const pi = DATA.pres.dates.indexOf(m.date);
   const r = pi >= 0 ? DATA.pres.res[pi] : '';
   const score = /^\d\s*-\s*\d$/.test(r) ? r : '';
-  return { ...m, i, me, opp, status, score, postponed: st.includes('postpon'), d: m.date ? toD(m.date) : null };
+  return { ...m, i, me, opp, status, score, postponed: st.includes('postpon'), forfeit: st.includes('fora') || st.includes('forfa'), d: m.date ? toD(m.date) : null };
 });
-upcoming = L.filter(m => m.d && m.d >= TODAY && !m.postponed);
+upcoming = L.filter(m => m.d && m.d >= TODAY && !m.postponed && !m.forfeit);
 next = upcoming.slice().sort((a,b) => a.d - b.d)[0]; }
 let filter = 'all';
 const maps = h => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(h.replace(/^[A-Z]\d{2}\s+/, ''));
+function ffNote(){ const f = L.filter(m => m.forfeit && m.d && m.d >= TODAY); return f.length ? `<div class="notice">⚑ ${f.length} match${f.length>1?'s':''} à venir marqué${f.length>1?'s':''} forfait (non joué${f.length>1?'s':''}) : ${f.map(m => short(m.date) + ' contre ' + esc(m.opp)).join(', ')}.</div>` : ''; }
 function hero(){
   if(!next) return '<div class="card">Plus de match à venir cette saison.</div>';
   const days = Math.round((next.d - TODAY) / 864e5);
@@ -216,14 +222,14 @@ function hero(){
   </section>`;
 }
 function list(){
-  let rows = L.filter(m => filter==='all' || (filter==='home' ? m.me==='home' : filter==='away' ? m.me==='away' : filter==='next' ? (m.d && m.d >= TODAY) : (m.d && m.d < TODAY)));
+  let rows = L.filter(m => filter==='all' || (filter==='home' ? m.me==='home' : filter==='away' ? m.me==='away' : filter==='next' ? (m.d && m.d >= TODAY) : filter==='ff' ? m.forfeit : (m.d && m.d < TODAY)));
   let html = '', month = '';
   rows.forEach(m => {
     const mo = m.d ? m.d.toLocaleDateString('fr-FR', { month:'long', year:'numeric' }) : 'Date inconnue';
     if(mo !== month){ html += `<div class="month">${mo}</div>`; month = mo; }
     const past = m.d && m.d < TODAY;
     const t = m.me==='home' ? `<span class="me">${esc(m.home)}</span> – ${esc(m.away)}` : `${esc(m.home)} – <span class="me">${esc(m.away)}</span>`;
-    html += `<article class="m${past?' past':''}${m===next?' next':''}">
+    html += `<article class="m${past?' past':''}${m===next?' next':''}${m.forfeit?' ff':''}">
       <div class="day"><b>${m.d ? m.d.getDate() : '?'}</b><span>${m.d ? m.d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') : ''}</span></div>
       <div>
         <div class="teams">${t}</div>
@@ -237,8 +243,8 @@ function list(){
   return html || '<p class="muted">Aucun match pour ce filtre.</p>';
 }
 function renderM(){
-  const F = [['all','Tous'],['next','À venir'],['past','Joués'],['home','Domicile'],['away','Extérieur']];
-  document.getElementById('main').innerHTML = hero() +
+  const F = [['all','Tous'],['next','À venir'],['past','Joués'],['home','Domicile'],['away','Extérieur'],['ff','Forfaits']];
+  document.getElementById('main').innerHTML = hero() + ffNote() +
     `<h2>Calendrier</h2><div class="chips" role="group" aria-label="Filtrer">${F.map(([k,l]) => `<button data-f="${k}" class="${filter===k?'on':''}" aria-pressed="${filter===k}">${l}</button>`).join('')}</div>` + list();
 }
 document.getElementById('main').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(b){ filter = b.dataset.f; renderM(); } });

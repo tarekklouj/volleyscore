@@ -101,6 +101,9 @@ tr.tot td{ font-weight:800; border-bottom:0; }
 .who{ font-size:14px; margin-top:10px; line-height:1.6; }
 
 td.c.ed{ cursor:pointer; }
+th.ffc, td.ffc{ background:repeating-linear-gradient(135deg,var(--panel) 0 8px,var(--panel2) 8px 16px); }
+td.ffc span{ opacity:.35; }
+.ffl{ font-weight:800; color:var(--ink); }
 td.c.ed:hover span{ filter:brightness(1.15); }
 td.c.busy span{ opacity:.35; }
 .me{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
@@ -197,10 +200,11 @@ function prep(){
   P = DATA.pres; opp = {};
   DATA.matches.forEach(m => { if(m.date && !opp[m.date]) opp[m.date] = { o: m.home===CLUB ? m.away : m.home, h: m.home===CLUB, st:(m.status||'').toLowerCase() }; });
   idx = P.dates.map((d,i) => i);
-  nextI = idx.find(i => toD(P.dates[i]) >= TODAY && (P.res[i]||'').toLowerCase() !== 'annulé' && !(opp[P.dates[i]]||{st:''}).st.includes('postpon'));
+  nextI = idx.find(i => { const s = (opp[P.dates[i]]||{st:''}).st; return toD(P.dates[i]) >= TODAY && (P.res[i]||'').toLowerCase() !== 'annulé' && !s.includes('postpon') && !s.includes('fora') && !s.includes('forfa'); });
 }
 const sym = v => v===1 ? '<span class="y" aria-label="présent">✓</span>' : v===0 ? '<span class="x" aria-label="absent">✗</span>' : v==='?' ? '<span class="q" aria-label="incertain">?</span>' : '<span class="e" aria-label="pas de réponse">·</span>';
-const editable = i => toD(P.dates[i]) >= TODAY;
+const isFF = i => { const s = (opp[P.dates[i]]||{st:''}).st; return s.includes('fora') || s.includes('forfa'); };
+const editable = i => toD(P.dates[i]) >= TODAY && !isFF(i);
 function summary(){
   if(nextI === undefined) return '';
   const vals = P.players.map(p => p.p[nextI]);
@@ -230,14 +234,15 @@ function summary(){
 }
 function grid(){
   const head = P.dates.map((d,i) => { const o = opp[d] || {}; const r = P.res[i] || '';
+    if(isFF(i)) return `<th class="ffc" scope="col">${short(d)}<span class="hl muted">${o.h?'Dom.':'Ext.'}</span><span class="hl ffl">⚑ forfait</span></th>`;
     return `<th class="${i===nextI?'nx':''}" scope="col">${short(d)}<span class="hl muted">${o.h?'Dom.':'Ext.'}</span>${r ? `<span class="hl" title="${esc(r)}">${/^\d-\d$/.test(r) ? esc(r) : r.toLowerCase()==='annulé' ? 'annulé' : 'note'}</span>` : ''}</th>`; }).join('');
   const body = P.players.map((p, pi) => {
-    const done = idx.filter(i => toD(P.dates[i]) < TODAY && (P.res[i]||'').toLowerCase() !== 'annulé');
+    const done = idx.filter(i => toD(P.dates[i]) < TODAY && (P.res[i]||'').toLowerCase() !== 'annulé' && !isFF(i));
     const pres = done.filter(i => p.p[i]===1).length;
-    return `<tr><th class="n" scope="row">${esc(p.name)}</th>${p.p.map((v,i) => `<td class="c${i===nextI?' nx':''}${editable(i)?' ed':''}"${editable(i)?` data-cell="${pi}:${i}" tabindex="0" role="button" aria-label="${esc(p.name)} le ${short(P.dates[i])} : modifier"`:''}>${sym(v)}</td>`).join('')}
+    return `<tr><th class="n" scope="row">${esc(p.name)}</th>${p.p.map((v,i) => `<td class="c${i===nextI?' nx':''}${editable(i)?' ed':''}${isFF(i)?' ffc':''}"${editable(i)?` data-cell="${pi}:${i}" tabindex="0" role="button" aria-label="${esc(p.name)} le ${short(P.dates[i])} : modifier"`:''}>${sym(v)}</td>`).join('')}
       <td class="rate">${done.length ? Math.round(pres/done.length*100) + ' %' : '–'}<span class="hl muted">${pres}/${done.length}</span></td></tr>`;
   }).join('');
-  const tot = P.dates.map((d,i) => `<td class="${i===nextI?'nx':''}">${P.players.filter(p => p.p[i]===1).length}</td>`).join('');
+  const tot = P.dates.map((d,i) => isFF(i) ? '<td class="ffc">–</td>' : `<td class="${i===nextI?'nx':''}">${P.players.filter(p => p.p[i]===1).length}</td>`).join('');
   return `<div class="scroll"><table><thead><tr><th class="n" scope="col">Joueur</th>${head}<th scope="col">Présence<br>matchs joués</th></tr></thead>
     <tbody>${body}<tr class="tot"><td class="n">Total présents</td>${tot}<td></td></tr></tbody></table></div>`;
 }
@@ -245,11 +250,11 @@ function render(){
   prep();
   $('main').innerHTML = summary() +
     `<h2>Tableau des présences</h2>
-     <div class="legend"><span><span class="y">✓</span>Présent</span><span><span class="x">✗</span>Absent</span><span><span class="q">?</span>Incertain</span><span><span class="e">·</span>Pas encore répondu</span></div>
+     <div class="legend"><span><span class="ffl" style="width:auto;padding:0 6px">⚑</span>Forfait (match non joué)</span><span><span class="y">✓</span>Présent</span><span><span class="x">✗</span>Absent</span><span><span class="q">?</span>Incertain</span><span><span class="e">·</span>Pas encore répondu</span></div>
      <p class="muted" style="font-size:13px;margin:0 2px 10px">Touche une case d'un match à venir pour la modifier. La réponse est enregistrée directement dans le Google Sheets.</p>` + grid();
   const w = $('whoami'); if(w) w.onchange = () => { ME = w.value; try{ localStorage.setItem('vs_me', ME); }catch(e){} render(); };
   const nm = $('notme'); if(nm) nm.onclick = e => { e.preventDefault(); ME = ''; try{ localStorage.removeItem('vs_me'); }catch(e){} render(); };
-  foot(`<p>Les réponses sont écrites dans le Google Sheets (1 présent, 0 absent, - incertain). Le taux de présence compte les matchs déjà joués, hors match annulé.</p>`);
+  foot(`<p>Les réponses sont écrites dans le Google Sheets (1 présent, 0 absent, - incertain). Le taux de présence compte les matchs déjà joués, hors match annulé et forfaits.</p>`);
 }
 function picker(pi, i){
   const p = P.players[pi], v = p.p[i];
