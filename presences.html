@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1f1f1f">
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
-<title>Finances – VC Clupea</title>
+<title>Présences – VC Clupea</title>
 <style>:root{
   --home:#136F8C; --away:#C2185B;
   --bg:#eceef1; --panel:#ffffff; --panel2:#f5f6f8; --ink:#1c1c1e; --muted:#6b6b73; --line:rgba(0,0,0,.08);
@@ -77,25 +77,41 @@ button:focus-visible, a:focus-visible{ outline:3px solid var(--home); outline-of
 .choices button.cur{ outline:3px solid currentColor; }
 @media (prefers-reduced-motion: reduce){ .skel{ animation:none; } .toast{ transition:none; } }
 
-.kpi{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.kpi div{ background:var(--panel); border-radius:16px; padding:14px 10px; }
-.kpi span{ font-size:13px; color:var(--muted); }
-.kpi b{ display:block; font-size:clamp(18px,5.5vw,26px); margin-top:2px; font-variant-numeric:tabular-nums; }
-.kpi .net{ background:var(--home); color:#fff; }
-.kpi .net span{ color:rgba(255,255,255,.85); }
-table{ border-collapse:collapse; width:100%; min-width:560px; font-size:14px; }
-th,td{ padding:10px 12px; border-bottom:1px solid var(--line); text-align:left; }
-th{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.in{ color:var(--ok); font-weight:700; } .out{ color:var(--ko); font-weight:700; }
-.pay{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
-.pay div{ background:var(--panel); border-radius:14px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.sum{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+.sum div{ background:var(--panel2); border-radius:12px; padding:10px 6px; text-align:center; }
+.sum b{ display:block; font-size:24px; }
+.sum span{ font-size:12px; color:var(--muted); }
+table{ border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:14px; }
+th,td{ padding:8px 6px; text-align:center; border-bottom:1px solid var(--line); }
+thead th{ position:sticky; top:0; background:var(--panel); font-size:12px; font-weight:700; vertical-align:bottom; }
+th.n, td.n{ position:sticky; left:0; z-index:1; background:var(--panel); text-align:left; padding-left:14px; white-space:nowrap; font-weight:600; min-width:140px; }
+thead th.n{ z-index:2; }
+td.c{ min-width:46px; }
+.c span{ display:inline-flex; width:30px; height:30px; border-radius:9px; align-items:center; justify-content:center; font-weight:800; }
+.y{ background:color-mix(in srgb,var(--ok) 20%,transparent); color:var(--ok); }
+.x{ background:color-mix(in srgb,var(--ko) 18%,transparent); color:var(--ko); }
+.q{ background:color-mix(in srgb,var(--maybe) 22%,transparent); color:var(--maybe); }
+.e{ color:var(--muted); }
+th.nx, td.nx{ background:color-mix(in srgb,var(--home) 10%,var(--panel)); }
+.hl{ display:block; font-size:11px; margin-top:2px; }
+tr.tot td{ font-weight:800; border-bottom:0; }
+.rate{ font-weight:700; white-space:nowrap; }
+.legend{ display:flex; flex-wrap:wrap; gap:10px; font-size:13px; color:var(--muted); margin:10px 2px; }
+.legend span span{ display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; font-weight:800; margin-right:4px; }
+.who{ font-size:14px; margin-top:10px; line-height:1.6; }
+
+td.c.ed{ cursor:pointer; }
+td.c.ed:hover span{ filter:brightness(1.15); }
+td.c.busy span{ opacity:.35; }
+.me{ margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.me .choices{ grid-template-columns:repeat(3,1fr); margin-top:8px; }
+.me select{ font:inherit; padding:9px 10px; border-radius:10px; border:1px solid var(--line); background:var(--panel2); color:var(--ink); }
 </style>
 </head><body>
 <div class="wrap">
 <header class="top">
-  <div class="brand"><h1>💶 VC Clupea</h1><span class="season">Heren 3B · 2026-2027</span></div>
-  <nav class="tabs" aria-label="Pages"><a href="index.html">Score</a><a href="matchs.html">Matchs</a><a href="presences.html">Présences</a><a href="finances.html" class="on" aria-current="page">Finances</a></nav>
+  <div class="brand"><h1>✅ VC Clupea</h1><span class="season">Heren 3B · 2026-2027</span></div>
+  <nav class="tabs" aria-label="Pages"><a href="index.html">Score</a><a href="matchs.html">Matchs</a><a href="presences.html" class="on" aria-current="page">Présences</a><a href="finances.html">Finances</a></nav>
   <div class="sync" id="sync" role="status" aria-live="polite"></div>
 </header>
 <main id="main"><div class="skel"></div></main>
@@ -174,31 +190,101 @@ async function api(body){
   saveCache(j); adapt(j); syncLine('Synchronisé ' + ago(j.updated));
   return j;
 }
-function render(){
 
-const eur = v => v==null ? '' : v.toLocaleString('fr-BE', { style:'currency', currency:'EUR' });
-const F = DATA.fin;
-const tin = F.reduce((a,r) => a + (r.debit||0), 0), tout = F.reduce((a,r) => a + (r.credit||0), 0);
-const net = Math.round((tin - tout)*100)/100;
-const roster = (DATA.roster || []);
-const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-const paid = new Set(F.filter(r => /adh[eé]sion/i.test(r.desc) && r.debit).map(r => norm(r.who)));
-const todo = F.filter(r => r.debit==null && r.credit==null);
-document.getElementById('main').innerHTML = `
-  <div class="kpi"><div><span>Entrées</span><b class="in">${eur(tin)}</b></div><div><span>Dépenses</span><b class="out">${eur(tout)}</b></div><div class="net"><span>Net caisse</span><b>${eur(net)}</b></div></div>
-  ${DATA.net!=null && Math.abs(DATA.net - net) > 0.005 ? `<div class="notice">Le net calculé (${eur(net)}) diffère de celui du fichier (${eur(DATA.net)}).</div>` : ''}
-  <h2>Cotisations 2026-2027</h2>
-  <div class="pay">${roster.map(n => `<div><span>${esc(n)}</span>${paid.has(norm(n)) ? '<span class="badge b-ok">Payée</span>' : '<span class="badge b-warn">Non enregistrée</span>'}</div>`).join('')}</div>
-  <h2>Opérations</h2>
-  <div class="scroll"><table><thead><tr><th>Description</th><th>Personne</th><th>Date</th><th class="num">Entrée</th><th class="num">Dépense</th></tr></thead><tbody>
-  ${F.map(r => `<tr><td>${esc(r.desc)}${r.debit==null && r.credit==null ? ' <span class="badge b-warn">montant à compléter</span>' : ''}</td><td>${esc(r.who)}</td>
-    <td>${r.date ? fDate(r.date, {day:'2-digit', month:'2-digit', year:'numeric'}) : '<span class="muted">–</span>'}</td>
-    <td class="num in">${eur(r.debit)}</td><td class="num out">${eur(r.credit)}</td></tr>`).join('')}
-  </tbody></table></div>
-  ${todo.length ? `<div class="notice">${todo.length} opération${todo.length>1?'s':''} sans montant : ${todo.map(r => esc(r.desc)).join(', ')}.</div>` : ''}`;
-foot(`<p>Dans le fichier, la colonne « Débit » correspond aux entrées (cotisations) et « Crédit » aux dépenses.</p>`);
-
+let ME = ''; try{ ME = localStorage.getItem('vs_me') || ''; }catch(e){}
+let P, opp, idx, nextI;
+function prep(){
+  P = DATA.pres; opp = {};
+  DATA.matches.forEach(m => { if(m.date && !opp[m.date]) opp[m.date] = { o: m.home===CLUB ? m.away : m.home, h: m.home===CLUB, st:(m.status||'').toLowerCase() }; });
+  idx = P.dates.map((d,i) => i);
+  nextI = idx.find(i => toD(P.dates[i]) >= TODAY && (P.res[i]||'').toLowerCase() !== 'annulé' && !(opp[P.dates[i]]||{st:''}).st.includes('postpon'));
 }
+const sym = v => v===1 ? '<span class="y" aria-label="présent">✓</span>' : v===0 ? '<span class="x" aria-label="absent">✗</span>' : v==='?' ? '<span class="q" aria-label="incertain">?</span>' : '<span class="e" aria-label="pas de réponse">·</span>';
+const editable = i => toD(P.dates[i]) >= TODAY;
+function summary(){
+  if(nextI === undefined) return '';
+  const vals = P.players.map(p => p.p[nextI]);
+  const c = k => vals.filter(v => v===k).length;
+  const yes = c(1), no = c(0), maybe = c('?'), none = vals.filter(v => v==null).length;
+  const o = opp[P.dates[nextI]] || {};
+  const names = k => P.players.filter(p => p.p[nextI]===k).map(p => esc(p.name)).join(', ');
+  const meP = P.players.find(p => p.name === ME);
+  const cur = meP ? meP.p[nextI] : undefined;
+  const mine = meP ? `<div class="me"><b>${esc(ME)}</b>, tu viens le ${short(P.dates[nextI])} ?
+      <div class="choices">
+        <button class="cy${cur===1?' cur':''}" data-set="1" data-p="${esc(ME)}" data-i="${nextI}">✓ Présent</button>
+        <button class="cq${cur==='?'?' cur':''}" data-set="?" data-p="${esc(ME)}" data-i="${nextI}">? Incertain</button>
+        <button class="cx${cur===0?' cur':''}" data-set="0" data-p="${esc(ME)}" data-i="${nextI}">✗ Absent</button>
+      </div><div style="margin-top:8px;font-size:13px"><a href="#" id="notme">Ce n'est pas moi</a></div></div>`
+    : `<div class="me"><label>Qui es-tu ? <select id="whoami"><option value="">Choisir mon nom…</option>${P.players.map(p => `<option>${esc(p.name)}</option>`).join('')}</select></label>
+       <div class="muted" style="font-size:13px;margin-top:6px">Pour répondre en un clic à chaque match.</div></div>`;
+  return `<section class="card" aria-label="Prochain match">
+    <div class="muted" style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">Prochain match</div>
+    <div style="font-size:19px;font-weight:800;margin-top:4px">${fDate(P.dates[nextI], {weekday:'long', day:'numeric', month:'long'})} · ${o.h?'contre':'chez'} ${esc(o.o||'')}</div>
+    <div class="sum"><div><b style="color:var(--ok)">${yes}</b><span>présents</span></div><div><b style="color:var(--ko)">${no}</b><span>absents</span></div>
+      <div><b style="color:var(--maybe)">${maybe}</b><span>incertains</span></div><div><b>${none}</b><span>sans réponse</span></div></div>
+    ${yes < 6 ? `<div class="notice">⚠️ Seulement ${yes} joueur${yes>1?'s':''} confirmé${yes>1?'s':''} : il en faut au moins 6 pour jouer.</div>` : `<div class="notice" style="background:color-mix(in srgb,var(--ok) 12%,var(--panel))">✅ ${yes} joueurs confirmés : l'équipe est complète.</div>`}
+    <div class="who">${yes?`<b>Présents :</b> ${names(1)}<br>`:''}${maybe?`<b>Incertains :</b> ${names('?')}<br>`:''}${no?`<b>Absents :</b> ${names(0)}<br>`:''}${none?`<b>Sans réponse :</b> ${P.players.filter(p => p.p[nextI]==null).map(p => esc(p.name)).join(', ')}`:''}</div>
+    ${mine}
+  </section>`;
+}
+function grid(){
+  const head = P.dates.map((d,i) => { const o = opp[d] || {}; const r = P.res[i] || '';
+    return `<th class="${i===nextI?'nx':''}" scope="col">${short(d)}<span class="hl muted">${o.h?'Dom.':'Ext.'}</span>${r ? `<span class="hl" title="${esc(r)}">${/^\d-\d$/.test(r) ? esc(r) : r.toLowerCase()==='annulé' ? 'annulé' : 'note'}</span>` : ''}</th>`; }).join('');
+  const body = P.players.map((p, pi) => {
+    const done = idx.filter(i => toD(P.dates[i]) < TODAY && (P.res[i]||'').toLowerCase() !== 'annulé');
+    const pres = done.filter(i => p.p[i]===1).length;
+    return `<tr><th class="n" scope="row">${esc(p.name)}</th>${p.p.map((v,i) => `<td class="c${i===nextI?' nx':''}${editable(i)?' ed':''}"${editable(i)?` data-cell="${pi}:${i}" tabindex="0" role="button" aria-label="${esc(p.name)} le ${short(P.dates[i])} : modifier"`:''}>${sym(v)}</td>`).join('')}
+      <td class="rate">${done.length ? Math.round(pres/done.length*100) + ' %' : '–'}<span class="hl muted">${pres}/${done.length}</span></td></tr>`;
+  }).join('');
+  const tot = P.dates.map((d,i) => `<td class="${i===nextI?'nx':''}">${P.players.filter(p => p.p[i]===1).length}</td>`).join('');
+  return `<div class="scroll"><table><thead><tr><th class="n" scope="col">Joueur</th>${head}<th scope="col">Présence<br>matchs joués</th></tr></thead>
+    <tbody>${body}<tr class="tot"><td class="n">Total présents</td>${tot}<td></td></tr></tbody></table></div>`;
+}
+function render(){
+  prep();
+  $('main').innerHTML = summary() +
+    `<h2>Tableau des présences</h2>
+     <div class="legend"><span><span class="y">✓</span>Présent</span><span><span class="x">✗</span>Absent</span><span><span class="q">?</span>Incertain</span><span><span class="e">·</span>Pas encore répondu</span></div>
+     <p class="muted" style="font-size:13px;margin:0 2px 10px">Touche une case d'un match à venir pour la modifier. La réponse est enregistrée directement dans le Google Sheets.</p>` + grid();
+  const w = $('whoami'); if(w) w.onchange = () => { ME = w.value; try{ localStorage.setItem('vs_me', ME); }catch(e){} render(); };
+  const nm = $('notme'); if(nm) nm.onclick = e => { e.preventDefault(); ME = ''; try{ localStorage.removeItem('vs_me'); }catch(e){} render(); };
+  foot(`<p>Les réponses sont écrites dans le Google Sheets (1 présent, 0 absent, - incertain). Le taux de présence compte les matchs déjà joués, hors match annulé.</p>`);
+}
+function picker(pi, i){
+  const p = P.players[pi], v = p.p[i];
+  openOv(`<h3>${esc(p.name)}</h3><div class="muted">${fDate(P.dates[i], {weekday:'long', day:'numeric', month:'long'})}</div>
+    <div class="choices">
+      <button class="cy${v===1?' cur':''}" data-set="1" data-p="${esc(p.name)}" data-i="${i}">✓ Présent</button>
+      <button class="cx${v===0?' cur':''}" data-set="0" data-p="${esc(p.name)}" data-i="${i}">✗ Absent</button>
+      <button class="cq${v==='?'?' cur':''}" data-set="?" data-p="${esc(p.name)}" data-i="${i}">? Incertain</button>
+      <button data-set="" data-p="${esc(p.name)}" data-i="${i}">· Effacer</button>
+    </div>
+    <div class="choices" style="grid-template-columns:1fr"><button data-close>Annuler</button></div>`);
+}
+async function setPres(name, i, raw){
+  const p = P.players.find(x => x.name === name); if(!p) return;
+  const value = raw==='1' ? 1 : raw==='0' ? 0 : raw==='?' ? '?' : null;
+  const before = p.p[i];
+  if(before === value) return;
+  p.p[i] = value; render(); closeOv();
+  const cell = document.querySelector(`[data-cell="${P.players.indexOf(p)}:${i}"]`); if(cell) cell.classList.add('busy');
+  try{
+    await api({ action:'setPresence', player:name, date:P.dates[i], value: raw });
+    render(); toast('Enregistré dans le Google Sheets ✓');
+  }catch(e){
+    p.p[i] = before; render();
+    toast(e.message==='code' ? "Code d'équipe refusé" : "Échec de l'enregistrement – vérifie ta connexion");
+  }
+}
+document.addEventListener('click', e => {
+  const s = e.target.closest('[data-set]'); if(s){ setPres(s.dataset.p, +s.dataset.i, s.dataset.set); return; }
+  const c = e.target.closest('[data-cell]'); if(c){ const [pi, i] = c.dataset.cell.split(':').map(Number); picker(pi, i); }
+});
+document.addEventListener('keydown', e => {
+  const c = e.target.closest && e.target.closest('[data-cell]');
+  if(c && (e.key==='Enter' || e.key===' ')){ e.preventDefault(); const [pi, i] = c.dataset.cell.split(':').map(Number); picker(pi, i); }
+});
 
 load();
 if('serviceWorker' in navigator && location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});

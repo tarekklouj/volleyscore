@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1f1f1f">
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png"><link rel="icon" href="icon-192.png">
-<title>Finances – VC Clupea</title>
+<title>Matchs – VC Clupea</title>
 <style>:root{
   --home:#136F8C; --away:#C2185B;
   --bg:#eceef1; --panel:#ffffff; --panel2:#f5f6f8; --ink:#1c1c1e; --muted:#6b6b73; --line:rgba(0,0,0,.08);
@@ -77,25 +77,35 @@ button:focus-visible, a:focus-visible{ outline:3px solid var(--home); outline-of
 .choices button.cur{ outline:3px solid currentColor; }
 @media (prefers-reduced-motion: reduce){ .skel{ animation:none; } .toast{ transition:none; } }
 
-.kpi{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.kpi div{ background:var(--panel); border-radius:16px; padding:14px 10px; }
-.kpi span{ font-size:13px; color:var(--muted); }
-.kpi b{ display:block; font-size:clamp(18px,5.5vw,26px); margin-top:2px; font-variant-numeric:tabular-nums; }
-.kpi .net{ background:var(--home); color:#fff; }
-.kpi .net span{ color:rgba(255,255,255,.85); }
-table{ border-collapse:collapse; width:100%; min-width:560px; font-size:14px; }
-th,td{ padding:10px 12px; border-bottom:1px solid var(--line); text-align:left; }
-th{ font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-.in{ color:var(--ok); font-weight:700; } .out{ color:var(--ko); font-weight:700; }
-.pay{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
-.pay div{ background:var(--panel); border-radius:14px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.hero{ background:var(--home); color:#fff; border-radius:22px; padding:18px; }
+.hero .k{ font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; opacity:.85; }
+.hero .vs{ font-size:22px; font-weight:800; margin:6px 0 4px; line-height:1.2; }
+.hero .when{ font-size:17px; font-weight:600; }
+.hero .cd{ display:inline-block; margin-top:10px; background:rgba(255,255,255,.18); padding:4px 12px; border-radius:999px; font-weight:700; font-size:14px; }
+.hero a{ color:#fff; }
+.hero .hall{ font-size:14px; opacity:.92; margin-top:8px; }
+.month{ font-size:14px; font-weight:700; color:var(--muted); text-transform:capitalize; margin:18px 4px 8px; }
+.m{ display:grid; grid-template-columns:56px 1fr; gap:12px; background:var(--panel); border-radius:16px; padding:12px; margin-bottom:8px; align-items:start; }
+.m.past{ opacity:.62; }
+.m.next{ outline:2px solid var(--home); }
+.day{ text-align:center; background:var(--panel2); border-radius:12px; padding:6px 0; }
+.day b{ display:block; font-size:22px; line-height:1.1; }
+.day span{ font-size:12px; color:var(--muted); text-transform:uppercase; }
+.teams{ font-weight:600; line-height:1.3; }
+.teams .me{ font-weight:800; }
+.meta{ display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; font-size:14px; color:var(--muted); margin-top:4px; }
+.hall{ font-size:14px; margin-top:4px; }
+.m .hall a{ color:var(--muted); }
+.hero .badge{ background:#fff; color:var(--home); }
+.m .hall a{ color:var(--muted); }
+.hero .badge{ background:#fff; color:var(--home); }
+.res{ font-weight:800; color:var(--ink); }
 </style>
 </head><body>
 <div class="wrap">
 <header class="top">
-  <div class="brand"><h1>💶 VC Clupea</h1><span class="season">Heren 3B · 2026-2027</span></div>
-  <nav class="tabs" aria-label="Pages"><a href="index.html">Score</a><a href="matchs.html">Matchs</a><a href="presences.html">Présences</a><a href="finances.html" class="on" aria-current="page">Finances</a></nav>
+  <div class="brand"><h1>📅 VC Clupea</h1><span class="season">Heren 3B · 2026-2027</span></div>
+  <nav class="tabs" aria-label="Pages"><a href="index.html">Score</a><a href="matchs.html" class="on" aria-current="page">Matchs</a><a href="presences.html">Présences</a><a href="finances.html">Finances</a></nav>
   <div class="sync" id="sync" role="status" aria-live="polite"></div>
 </header>
 <main id="main"><div class="skel"></div></main>
@@ -174,30 +184,67 @@ async function api(body){
   saveCache(j); adapt(j); syncLine('Synchronisé ' + ago(j.updated));
   return j;
 }
-function render(){
 
-const eur = v => v==null ? '' : v.toLocaleString('fr-BE', { style:'currency', currency:'EUR' });
-const F = DATA.fin;
-const tin = F.reduce((a,r) => a + (r.debit||0), 0), tout = F.reduce((a,r) => a + (r.credit||0), 0);
-const net = Math.round((tin - tout)*100)/100;
-const roster = (DATA.roster || []);
-const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-const paid = new Set(F.filter(r => /adh[eé]sion/i.test(r.desc) && r.debit).map(r => norm(r.who)));
-const todo = F.filter(r => r.debit==null && r.credit==null);
-document.getElementById('main').innerHTML = `
-  <div class="kpi"><div><span>Entrées</span><b class="in">${eur(tin)}</b></div><div><span>Dépenses</span><b class="out">${eur(tout)}</b></div><div class="net"><span>Net caisse</span><b>${eur(net)}</b></div></div>
-  ${DATA.net!=null && Math.abs(DATA.net - net) > 0.005 ? `<div class="notice">Le net calculé (${eur(net)}) diffère de celui du fichier (${eur(DATA.net)}).</div>` : ''}
-  <h2>Cotisations 2026-2027</h2>
-  <div class="pay">${roster.map(n => `<div><span>${esc(n)}</span>${paid.has(norm(n)) ? '<span class="badge b-ok">Payée</span>' : '<span class="badge b-warn">Non enregistrée</span>'}</div>`).join('')}</div>
-  <h2>Opérations</h2>
-  <div class="scroll"><table><thead><tr><th>Description</th><th>Personne</th><th>Date</th><th class="num">Entrée</th><th class="num">Dépense</th></tr></thead><tbody>
-  ${F.map(r => `<tr><td>${esc(r.desc)}${r.debit==null && r.credit==null ? ' <span class="badge b-warn">montant à compléter</span>' : ''}</td><td>${esc(r.who)}</td>
-    <td>${r.date ? fDate(r.date, {day:'2-digit', month:'2-digit', year:'numeric'}) : '<span class="muted">–</span>'}</td>
-    <td class="num in">${eur(r.debit)}</td><td class="num out">${eur(r.credit)}</td></tr>`).join('')}
-  </tbody></table></div>
-  ${todo.length ? `<div class="notice">${todo.length} opération${todo.length>1?'s':''} sans montant : ${todo.map(r => esc(r.desc)).join(', ')}.</div>` : ''}`;
-foot(`<p>Dans le fichier, la colonne « Débit » correspond aux entrées (cotisations) et « Crédit » aux dépenses.</p>`);
-
+let L = [], upcoming = [], next = null;
+function prep(){ L = DATA.matches.map((m, i) => {
+  const me = m.home === CLUB ? 'home' : 'away';
+  const opp = me === 'home' ? m.away : m.home;
+  const st = (m.status || '').toLowerCase();
+  let status = '';
+  if(st.includes('postpon')) status = '<span class="badge b-warn">Reporté</span>';
+  else if(st.includes('fora') || st.includes('forfa')) status = '<span class="badge b-ok">Forfait pour Clupea</span>';
+  else if(m.status) status = `<span class="badge b-warn">${esc(m.status)}</span>`;
+  const pi = DATA.pres.dates.indexOf(m.date);
+  const r = pi >= 0 ? DATA.pres.res[pi] : '';
+  const score = /^\d\s*-\s*\d$/.test(r) ? r : '';
+  return { ...m, i, me, opp, status, score, postponed: st.includes('postpon'), d: m.date ? toD(m.date) : null };
+});
+upcoming = L.filter(m => m.d && m.d >= TODAY && !m.postponed);
+next = upcoming.slice().sort((a,b) => a.d - b.d)[0]; }
+let filter = 'all';
+const maps = h => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(h.replace(/^[A-Z]\d{2}\s+/, ''));
+function hero(){
+  if(!next) return '<div class="card">Plus de match à venir cette saison.</div>';
+  const days = Math.round((next.d - TODAY) / 864e5);
+  const cd = days === 0 ? "C'est aujourd'hui !" : days === 1 ? 'Demain' : `Dans ${days} jours`;
+  return `<section class="hero" aria-label="Prochain match">
+    <div class="k">Prochain match · ${next.me==='home' ? 'à domicile' : 'à l\'extérieur'}</div>
+    <div class="vs">${esc(next.home)} – ${esc(next.away)}</div>
+    <div class="when">${fDate(next.date, { weekday:'long', day:'numeric', month:'long' })} à ${esc(next.time)}</div>
+    <div class="hall">📍 <a href="${maps(next.hall)}" target="_blank" rel="noopener">${esc(next.hall)}</a></div>
+    <span class="cd">${cd}</span> ${next.status ? next.status.replace('badge ', 'badge ') : ''}
+  </section>`;
+}
+function list(){
+  let rows = L.filter(m => filter==='all' || (filter==='home' ? m.me==='home' : filter==='away' ? m.me==='away' : filter==='next' ? (m.d && m.d >= TODAY) : (m.d && m.d < TODAY)));
+  let html = '', month = '';
+  rows.forEach(m => {
+    const mo = m.d ? m.d.toLocaleDateString('fr-FR', { month:'long', year:'numeric' }) : 'Date inconnue';
+    if(mo !== month){ html += `<div class="month">${mo}</div>`; month = mo; }
+    const past = m.d && m.d < TODAY;
+    const t = m.me==='home' ? `<span class="me">${esc(m.home)}</span> – ${esc(m.away)}` : `${esc(m.home)} – <span class="me">${esc(m.away)}</span>`;
+    html += `<article class="m${past?' past':''}${m===next?' next':''}">
+      <div class="day"><b>${m.d ? m.d.getDate() : '?'}</b><span>${m.d ? m.d.toLocaleDateString('fr-FR',{weekday:'short'}).replace('.','') : ''}</span></div>
+      <div>
+        <div class="teams">${t}</div>
+        <div class="meta"><span>🕘 ${esc(m.time)}</span>
+          <span class="badge ${m.me==='home'?'b-home':'b-away'}">${m.me==='home'?'Domicile':'Extérieur'}</span>
+          ${m.score ? `<span class="res">Résultat ${esc(m.score)}</span>` : ''}${m.status}
+          <span>${esc(m.num)}</span></div>
+        <div class="hall"><a href="${maps(m.hall)}" target="_blank" rel="noopener">${esc(m.hall)}</a></div>
+      </div></article>`;
+  });
+  return html || '<p class="muted">Aucun match pour ce filtre.</p>';
+}
+function renderM(){
+  const F = [['all','Tous'],['next','À venir'],['past','Joués'],['home','Domicile'],['away','Extérieur']];
+  document.getElementById('main').innerHTML = hero() +
+    `<h2>Calendrier</h2><div class="chips" role="group" aria-label="Filtrer">${F.map(([k,l]) => `<button data-f="${k}" class="${filter===k?'on':''}" aria-pressed="${filter===k}">${l}</button>`).join('')}</div>` + list();
+}
+document.getElementById('main').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(b){ filter = b.dataset.f; renderM(); } });
+function render(){ prep(); renderM();
+foot(`<p>📅 <a href="${esc(DATA.info.calendar)}" target="_blank" rel="noopener">Ajouter les matchs à mon calendrier (volleyscores.be)</a></p>
+  <p>📄 Feuille de match scannée à envoyer à <a href="mailto:${esc(DATA.info.email)}">${esc(DATA.info.email)}</a></p>`);
 }
 
 load();
