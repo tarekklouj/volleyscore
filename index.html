@@ -152,6 +152,20 @@ button:disabled{ opacity:.35; }
 .lu-pad button{ padding:13px 0; font-size:22px; font-weight:600; border-radius:12px; background:var(--bg); }
 .lu-pad button:active{ filter:brightness(.9); }
 .lu-pad .lu-next{ background:var(--home); color:#fff; font-size:16px; }
+.bar.slim{ padding:0; gap:10px; }
+.bar .pill{ display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:999px; background:var(--panel); font-weight:600; font-size:15px; }
+.bar .pill .ico{ width:20px; height:20px; }
+.setinfo{ flex:1; text-align:center; color:var(--muted); font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mlabel{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:14px 2px 8px; }
+.menu-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.tile{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:14px 4px; border-radius:14px;
+  background:var(--bg); font-size:13px; font-weight:600; text-align:center; line-height:1.2; min-height:84px; }
+.tile .ico{ width:26px; height:26px; }
+.tile:active{ filter:brightness(.9); }
+.lu-tools{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+.lu-tools button{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border-radius:12px; background:var(--bg);
+  font-size:12px; font-weight:600; line-height:1.15; }
+.lu-tools .ico{ width:22px; height:22px; }
 #timeout{ flex-direction:column; gap:26px; color:#fff; }
 #timeout .tt{ font-size:22px; font-weight:600; }
 #timeout .seg{ height:150px; gap:14px; }
@@ -181,8 +195,11 @@ button:disabled{ opacity:.35; }
 <script>
 (() => {
 /* ---------- Icônes ---------- */
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 const I = {
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>',
+  send:'<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
   sheet:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/>',
   tv:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
   pdf:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/>',
@@ -632,7 +649,7 @@ function confirmNew(){
 /* ---------- Saisie rapide de la composition ---------- */
 let LU = null;
 const ROMAN = ['I','II','III','IV','V','VI'];
-function editPlayer(t, pos){ LU = { t, pos, buf:'', rot:S[t].rot.slice() }; renderLU(); }
+function editPlayer(t, pos){ LU = { t, pos, buf:'', rot:S[t].rot.slice(), serve: S.serving === t }; renderLU(); }
 function renderLU(){
   const t = LU.t, layout = (S.swapped ? 'away' : 'home') === t ? LEFT_LAYOUT : RIGHT_LAYOUT;
   const slots = layout.map(p => {
@@ -645,8 +662,13 @@ function renderLU(){
     k==='next' ? `<button data-lu="next" class="lu-next">${LU.pos===6 ? 'OK ✓' : 'Suivant ›'}</button>` :
     `<button data-lu="k" data-k="${k}">${k}</button>`).join('');
   open(`<h2>Composition – ${esc(name(t))}</h2>
-    <p style="margin:0 0 10px">Poste <b>${ROMAN[LU.pos-1]}</b> : tape le numéro. Un numéro déjà sur le terrain est échangé.</p>
+    <p style="margin:0 0 10px">Poste <b>${ROMAN[LU.pos-1]}</b> : tape le numéro (un numéro déjà sur le terrain est échangé), ou fais tourner l'équipe.</p>
     <div class="lu-court" style="--c:${col(t)}">${slots}</div>
+    <div class="lu-tools">
+      <button data-lu="rotb" aria-label="Rotation arrière">${ico('ccw')}<span>Rotation arrière</span></button>
+      <button data-lu="serve" class="${LU.serve?'on':''}" style="${LU.serve?`background:${col(t)};color:#fff`:''}" aria-pressed="${LU.serve}">${ico('ball')}<span>${LU.serve ? 'Au service' : 'Donner le service'}</span></button>
+      <button data-lu="rotf" aria-label="Rotation avant">${ico('cw')}<span>Rotation avant</span></button>
+    </div>
     <div class="lu-pad">${keys}</div>
     <div class="actions"><button data-lu="cancel">Annuler</button><button class="primary" data-lu="done">Terminé</button></div>`);
 }
@@ -659,7 +681,8 @@ function luCommit(){
 }
 function luSave(){
   luCommit();
-  if(LU.rot.join() !== S[LU.t].rot.join()){ snap(); S[LU.t].rot = LU.rot.slice(); commit(); buzz(); }
+  const rotChanged = LU.rot.join() !== S[LU.t].rot.join(), serveChanged = LU.serve && S.serving !== LU.t;
+  if(rotChanged || serveChanged){ snap(); S[LU.t].rot = LU.rot.slice(); if(serveChanged) S.serving = LU.t; commit(); buzz(); }
   LU = null; close();
 }
 function luNext(){ luCommit(); if(LU.pos < 6){ LU.pos++; renderLU(); } else luSave(); }
@@ -677,6 +700,9 @@ sheet.addEventListener('click', e => {
   if(a === 'k') luKey(b.dataset.k);
   else if(a === 'del' || a === 'next') luKey(a);
   else if(a === 'slot'){ luCommit(); LU.cleared = false; LU.pos = +b.dataset.pos; renderLU(); }
+  else if(a === 'rotf'){ luCommit(); LU.rot = cw(LU.rot); renderLU(); }
+  else if(a === 'rotb'){ luCommit(); LU.rot = ccw(LU.rot); renderLU(); }
+  else if(a === 'serve'){ LU.serve = true; renderLU(); }
   else if(a === 'done') luSave();
   else if(a === 'cancel'){ LU = null; close(); }
 });
@@ -686,6 +712,30 @@ document.addEventListener('keydown', e => {
   else if(e.key === 'Backspace'){ e.preventDefault(); luKey('del'); }
   else if(e.key === 'Enter' || e.key === 'Tab'){ e.preventDefault(); luKey('next'); }
 });
+function menuView(){
+  const onSite = /github\.io$|^localhost$|^127\./.test(location.hostname);
+  const tile = (m, icon, label) => `<button class="tile" data-m="go-${m}">${ico(icon)}<span>${label}</span></button>`;
+  const team = onSite ? tile('matchs','cal','Matchs') + tile('pres','users','Présences')
+                      : (C.sheetUrl ? tile('sheet','sheet','Google Sheets') : '');
+  open(`<h2>Menu</h2>
+    <div class="mlabel">Match</div>
+    <div class="menu-grid">
+      ${tile('new','plus','Nouveau match')}${tile('history','list','Historique')}${tile('board','tv','Mode tableau')}
+      ${tile('swap','swap','Changer de côté')}${tile('pdf','pdf','Feuille PDF')}${tile('share','share','Partager')}
+      ${C.syncUrl && C.teamCode ? tile('result','send','Résultat → Sheets') : ''}
+    </div>
+    <div class="mlabel">${team ? 'Équipe et réglages' : 'Réglages'}</div>
+    <div class="menu-grid">${team}${tile('settings','gear','Réglages')}</div>
+    <p class="hint">Rotation et service : touchez un joueur sur le terrain.</p>
+    <div class="actions"><button data-m="close">Fermer</button></div>`);
+}
+const MENU = {
+  new: confirmNew, history: historyView, board: openBoard, pdf: exportPDF, share: share, settings: settingsView,
+  swap: () => { snap(); S.swapped = !S.swapped; commit(); buzz(); },
+  result: () => resultDialog(),
+  matchs: () => { location.href = 'matchs.html'; }, pres: () => { location.href = 'presences.html'; },
+  sheet: () => openSheet()
+};
 function historyView(){
   let rows = S.sets.map((s,i)=>`<div class="row"><span>Set ${i+1}</span><span><b class="h">${s.home}</b> – <b class="a">${s.away}</b></span></div>`).join('');
   if(!S.winner) rows += `<div class="row"><span>Set ${setNo()} (en cours)</span><span><b class="h">${S.home.points}</b> – <b class="a">${S.away.points}</b></span></div>`;
@@ -728,6 +778,7 @@ const clamp = (v,a,b,d) => { v = parseInt(v,10); return isNaN(v) ? d : Math.min(
 sheet.addEventListener('click', e => {
   const b = e.target.closest('[data-m]'); if(!b) return;
   const m = b.dataset.m;
+  if(m.startsWith('go-')){ close(); const f = MENU[m.slice(3)]; if(f) f(); return; }
   if(m==='pdf'){ close(); exportPDF(); return; }
   if(m==='sendres'){ sendResult(); return; }
   if(m==='result'){ resultDialog(); return; }
@@ -803,24 +854,10 @@ function render(){
     <div class="card" style="background:${col(L)}" data-score="${L}" role="button" tabindex="0" aria-label="${esc(name(L))} : ${S[L].points} points. Touchez pour ajouter un point.">${serverInfo(L)}${seg(S[L].points)}${pointType(L)?`<span class="sp" style="color:${col(L)}">${pointType(L)}</span>`:''}</div>
     <div class="card" style="background:${col(R)}" data-score="${R}" role="button" tabindex="0" aria-label="${esc(name(R))} : ${S[R].points} points. Touchez pour ajouter un point.">${serverInfo(R)}${seg(S[R].points)}${pointType(R)?`<span class="sp" style="color:${col(R)}">${pointType(R)}</span>`:''}</div>
   </div>
-  <div class="bar">
-    <button data-act="new" aria-label="Nouveau match">${ico('plus')}</button>
-    <button data-act="undo" aria-label="Annuler" ${history.length?'':'disabled'}>${ico('undo')}</button>
-    <button data-act="swap" aria-label="Changer de côté">${ico('swap')}</button>
-    <button data-act="sheet" aria-label="Matchs et présences">${ico('sheet')}</button>
-    <button data-act="history" aria-label="Historique des sets">${ico('list')}</button>
-    <button data-act="pdf" aria-label="Feuille de match PDF">${ico('pdf')}</button>
-    <button data-act="board" aria-label="Mode tableau d'affichage">${ico('tv')}</button>
-    <button data-act="share" aria-label="Partager le score">${ico('share')}</button>
-    <button data-act="settings" aria-label="Réglages">${ico('gear')}</button>
-  </div>
-  <div class="bar">
-    <button data-act="rot" data-team="${L}" data-dir="cw" aria-label="Rotation avant ${esc(name(L))}">${ico('cw')}</button>
-    <button data-act="rot" data-team="${L}" data-dir="ccw" aria-label="Rotation arrière ${esc(name(L))}">${ico('ccw')}</button>
-    <button class="serve" data-act="serve" data-team="${L}" style="${S.serving===L?'color:'+col(L):''}" aria-label="Service ${esc(name(L))}">${ico('ball')}</button>
-    <button class="serve" data-act="serve" data-team="${R}" style="${S.serving===R?'color:'+col(R):''}" aria-label="Service ${esc(name(R))}">${ico('ball')}</button>
-    <button data-act="rot" data-team="${R}" data-dir="cw" aria-label="Rotation avant ${esc(name(R))}">${ico('cw')}</button>
-    <button data-act="rot" data-team="${R}" data-dir="ccw" aria-label="Rotation arrière ${esc(name(R))}">${ico('ccw')}</button>
+  <div class="bar slim">
+    <button class="pill" data-act="undo" aria-label="Annuler la dernière action" ${history.length?'':'disabled'}>${ico('undo')}<span>Annuler</span></button>
+    <span class="setinfo">${S.winner ? 'Match terminé' : `Set ${setNo()} · ${target()} pts`}</span>
+    <button class="pill" data-act="menu" aria-label="Menu et réglages">${ico('gear')}<span>Menu</span></button>
   </div>
   <div class="court">
     ${half(L, LEFT_LAYOUT)}
@@ -870,6 +907,7 @@ app.addEventListener('click', e => {
     case 'undo': undo(); break;
     case 'swap': S.swapped = !S.swapped; commit(); buzz(); break;
     case 'history': historyView(); break;
+    case 'menu': menuView(); break;
     case 'pdf': exportPDF(); break;
     case 'sheet': openSheet(); break;
     case 'board': openBoard(); break;
