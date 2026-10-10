@@ -195,7 +195,7 @@ button:disabled{ opacity:.35; }
 <script>
 (() => {
 /* ---------- Icônes ---------- */
-const APP_VERSION = 19;
+const APP_VERSION = 20;
 const I = {
   cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>',
@@ -758,18 +758,14 @@ function settingsView(){
   <label>Points par set <input id="s_pts" type="number" inputmode="numeric" min="5" max="50" value="${C.pointsPerSet}"></label>
   <label>Points au tie-break <input id="s_tb" type="number" inputmode="numeric" min="5" max="50" value="${C.tieBreak}"></label>
   <label>Temps mort (secondes) <input id="s_to" type="number" inputmode="numeric" min="10" max="120" value="${C.timeoutSec}"></label>
-  <label>URL de synchronisation <input id="s_sync" type="url" inputmode="url" value="${esc(C.syncUrl||'')}"></label>
   <label>Code d'équipe <input id="s_code" type="password" autocomplete="off" value="${esc(C.teamCode||'')}"></label>
   <label>Lien Google Sheets <input id="s_sheet" type="url" inputmode="url" placeholder="https://docs.google.com/…" value="${esc(C.sheetUrl||'')}"></label>
   <label>Pause entre les sets (min) <input id="s_br" type="number" inputmode="decimal" min="0.5" max="15" step="0.5" value="${C.breakMin}"></label>
   <label>Couleur ${esc(C.homeName)} <input id="s_hc" type="color" value="${C.homeColor}"></label>
   <label>Couleur ${esc(C.awayName)} <input id="s_ac" type="color" value="${C.awayColor}"></label>
   <p class="hint" style="margin:6px 0 0 !important"><button type="button" data-m="resetcolors" style="color:var(--home);font-weight:600;padding:4px 0">Couleurs par défaut</button></p>
-  <label>Chrono automatique <input id="s_auto" type="checkbox" ${C.autoClock?'checked':''}></label>
   <label>Sons <input id="s_snd" type="checkbox" ${C.sound?'checked':''}></label>
-  <label>Anti double-touche <input id="s_dbl" type="checkbox" ${C.antiDouble?'checked':''}></label>
   <label>Vibrations <input id="s_vib" type="checkbox" ${C.vibrate?'checked':''}></label>
-  <p class="hint">Touchez un score pour ajouter un point, glissez vers le bas pour en retirer un. Touchez un joueur sur le terrain pour changer son numéro. Le chrono du match démarre au premier point et se met en pause pendant les temps morts et entre les sets (désactivable ci-dessus) ; touchez-le pour le lancer ou l'arrêter à la main.</p>
   <p class="hint" style="margin-top:4px !important">VolleyScore · version ${APP_VERSION}</p>
   <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="settings">Enregistrer</button></div>`);
 }
@@ -797,13 +793,9 @@ sheet.addEventListener('click', e => {
     C.vibrate = document.getElementById('s_vib').checked;
     C.breakMin = Math.min(15, Math.max(0.5, parseFloat(document.getElementById('s_br').value) || 3));
     C.sound = document.getElementById('s_snd').checked;
-    C.autoClock = document.getElementById('s_auto').checked;
-    const sy = document.getElementById('s_sync').value.trim();
-    C.syncUrl = (sy === '' || /^https:\/\//i.test(sy)) ? sy : C.syncUrl;
     C.teamCode = document.getElementById('s_code').value.trim();
     const su = document.getElementById('s_sheet').value.trim();
     C.sheetUrl = (su === '' || /^https:\/\//i.test(su)) ? su : C.sheetUrl;
-    C.antiDouble = document.getElementById('s_dbl').checked;
     C.homeColor = document.getElementById('s_hc').value || DEF.homeColor;
     C.awayColor = document.getElementById('s_ac').value || DEF.awayColor;
     store.set('settings', C); applyColors(); render();
