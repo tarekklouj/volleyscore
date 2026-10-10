@@ -181,6 +181,7 @@ button:disabled{ opacity:.35; }
 <script>
 (() => {
 /* ---------- Icônes ---------- */
+const APP_VERSION = 18;
 const I = {
   sheet:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/>',
   tv:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
@@ -719,6 +720,7 @@ function settingsView(){
   <label>Anti double-touche <input id="s_dbl" type="checkbox" ${C.antiDouble?'checked':''}></label>
   <label>Vibrations <input id="s_vib" type="checkbox" ${C.vibrate?'checked':''}></label>
   <p class="hint">Touchez un score pour ajouter un point, glissez vers le bas pour en retirer un. Touchez un joueur sur le terrain pour changer son numéro. Le chrono du match démarre au premier point et se met en pause pendant les temps morts et entre les sets (désactivable ci-dessus) ; touchez-le pour le lancer ou l'arrêter à la main.</p>
+  <p class="hint" style="margin-top:4px !important">VolleyScore · version ${APP_VERSION}</p>
   <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="settings">Enregistrer</button></div>`);
 }
 const clamp = (v,a,b,d) => { v = parseInt(v,10); return isNaN(v) ? d : Math.min(b, Math.max(a, v)); };
@@ -905,7 +907,15 @@ document.addEventListener('keydown', e => {
 
 render();
 if('serviceWorker' in navigator && location.protocol==='https:'){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache:'none' }).then(r => r.update()).catch(()=>{});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if(!hadController || reloaded) return;
+    reloaded = true;
+    if(modal.classList.contains('show')) toast('Nouvelle version disponible : elle sera chargée à la prochaine ouverture');
+    else location.reload();
+  });
 }
 })();
 </script>
