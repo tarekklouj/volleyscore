@@ -105,6 +105,10 @@ button:focus-visible, a:focus-visible{ outline:3px solid var(--home); outline-of
 .ffnote{ font-size:13px; font-style:italic; }
 .m.ff{ background:repeating-linear-gradient(135deg,var(--panel) 0 14px,var(--panel2) 14px 28px); }
 .m.ff .teams{ text-decoration:line-through; text-decoration-thickness:1px; }
+.acts{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+.acts button{ font:inherit; font-size:14px; font-weight:700; border:0; border-radius:999px; padding:7px 13px; cursor:pointer; background:var(--panel2); color:var(--ink); }
+.acts.light button{ background:rgba(255,255,255,.2); color:#fff; }
+.choices a.lnk{ display:block; text-align:center; text-decoration:none; font-weight:700; font-size:16px; border-radius:14px; padding:14px; background:var(--panel2); color:var(--ink); }
 </style>
 </head><body>
 <div class="wrap">
@@ -210,6 +214,50 @@ function prep(){ L = DATA.matches.map((m, i) => {
 upcoming = L.filter(m => m.d && m.d >= TODAY && !m.postponed && !m.forfeit);
 next = upcoming.slice().sort((a,b) => a.d - b.d)[0]; }
 let filter = 'all';
+const addr = h => String(h||'').replace(/^[A-Z]\d{2}\s+/, '');
+const pad = n => String(n).padStart(2,'0');
+function stamp(m, addH){ const [y,mo,d] = m.date.split('-').map(Number); const [hh,mm] = (m.time||'20:00').split(':').map(Number);
+  const t = new Date(y, mo-1, d, hh + (addH||0), mm || 0);
+  return `${t.getFullYear()}${pad(t.getMonth()+1)}${pad(t.getDate())}T${pad(t.getHours())}${pad(t.getMinutes())}00`; }
+const evTitle = m => `🏐 ${m.home} – ${m.away}`;
+function icsFile(m){
+  const e = s => String(s).replace(/([,;\\])/g,'\\$1');
+  const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//VolleyScore//VC Clupea//FR','BEGIN:VEVENT',
+    `UID:${m.num}-${m.date}@volleyscore`, `DTSTAMP:${stamp({date:new Date().toISOString().slice(0,10), time:'00:00'})}`,
+    `DTSTART:${stamp(m)}`, `DTEND:${stamp(m,2)}`, `SUMMARY:${e(evTitle(m))}`, `LOCATION:${e(addr(m.hall))}`,
+    `DESCRIPTION:${e('Match ' + m.num + ' · ' + (m.me==='home' ? 'à domicile' : "à l'extérieur"))}`,
+    'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:Match demain','TRIGGER:-P1D','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n');
+  const url = URL.createObjectURL(new Blob([ics], { type:'text/calendar' }));
+  const a = document.createElement('a'); a.href = url; a.download = `match-${m.date}.ics`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 20000);
+}
+const gcal = m => 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(evTitle(m)) +
+  `&dates=${stamp(m)}/${stamp(m,2)}&ctz=Europe/Brussels&location=` + encodeURIComponent(addr(m.hall)) + '&details=' + encodeURIComponent('Match ' + m.num);
+const acts = (m, light) => (m.d && m.d >= TODAY && !m.postponed && !m.forfeit) ?
+  `<div class="acts${light?' light':''}"><button data-cal="${m.i}">📅 Agenda</button><button data-go="${m.i}">🧭 Y aller</button></div>` : '';
+function calSheet(m){
+  openOv(`<h3>Ajouter à l'agenda</h3><div class="muted">${esc(evTitle(m))} · ${fDate(m.date)} à ${esc(m.time)}</div>
+    <div class="choices" style="grid-template-columns:1fr">
+      <button data-ics="${m.i}">📱 Agenda du téléphone</button>
+      <a class="lnk" href="${gcal(m)}" target="_blank" rel="noopener">🗓️ Google Agenda</a>
+      <button data-close>Annuler</button></div>
+    <div class="muted" style="font-size:13px;margin-top:8px">Rappel automatique la veille du match.</div>`);
+}
+function goSheet(m){
+  const q = encodeURIComponent(addr(m.hall));
+  openOv(`<h3>Y aller</h3><div class="muted">${esc(addr(m.hall))}</div>
+    <div class="choices" style="grid-template-columns:1fr">
+      <a class="lnk" href="https://www.google.com/maps/dir/?api=1&destination=${q}" target="_blank" rel="noopener">🗺️ Google Maps</a>
+      <a class="lnk" href="https://waze.com/ul?q=${q}&navigate=yes" target="_blank" rel="noopener">🚗 Waze</a>
+      <a class="lnk" href="https://maps.apple.com/?daddr=${q}" target="_blank" rel="noopener">🍎 Plans (iPhone)</a>
+      <button data-close>Annuler</button></div>`);
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-cal]'); if(c){ calSheet(L[+c.dataset.cal]); return; }
+  const g = e.target.closest('[data-go]'); if(g){ goSheet(L[+g.dataset.go]); return; }
+  const f = e.target.closest('[data-ics]'); if(f){ icsFile(L[+f.dataset.ics]); closeOv(); return; }
+  if(e.target.closest('#ovs a.lnk')) setTimeout(closeOv, 300);
+});
 const maps = h => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(h.replace(/^[A-Z]\d{2}\s+/, ''));
 function ffNote(){ const f = L.filter(m => m.forfeit && m.d && m.d >= TODAY); return f.length ? `<div class="notice">⚑ ${f.length} match${f.length>1?'s':''} à venir marqué${f.length>1?'s':''} forfait (non joué${f.length>1?'s':''}) : ${f.map(m => short(m.date) + ' contre ' + esc(m.opp)).join(', ')}.</div>` : ''; }
 function hero(){
@@ -222,6 +270,7 @@ function hero(){
     <div class="when">${fDate(next.date, { weekday:'long', day:'numeric', month:'long' })} à ${esc(next.time)}</div>
     <div class="hall">📍 <a href="${maps(next.hall)}" target="_blank" rel="noopener">${esc(next.hall)}</a></div>
     <span class="cd">${cd}</span> ${next.status ? next.status.replace('badge ', 'badge ') : ''}
+    ${acts(next, true)}
   </section>`;
 }
 function list(){
@@ -241,6 +290,7 @@ function list(){
           ${m.score ? `<span class="res">Résultat ${esc(m.score)}</span>` : ''}${m.status}
           <span>${esc(m.num)}</span></div>
         <div class="hall"><a href="${maps(m.hall)}" target="_blank" rel="noopener">${esc(m.hall)}</a></div>
+        ${acts(m)}
       </div></article>`;
   });
   return html || '<p class="muted">Aucun match pour ce filtre.</p>';
