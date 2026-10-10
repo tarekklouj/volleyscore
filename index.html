@@ -142,6 +142,16 @@ button:disabled{ opacity:.35; }
 .bd-foot .num{ font-size:min(9cqh,8cqw); font-weight:800; }
 .bd-foot .ico{ width:min(11cqh,10cqw); height:min(11cqh,10cqw); }
 .bd-team .sp{ top:auto; bottom:22%; font-size:min(6cqh,5cqw); padding:.2em .8em; }
+.lu-court{ display:grid; grid-template-columns:1fr 1fr; gap:8px; background:var(--c); padding:10px; border-radius:16px; }
+.lu-s{ background:#fff; color:var(--c); border-radius:12px; padding:5px 0 7px; display:flex; flex-direction:column; align-items:center; }
+.lu-s small{ font-size:11px; font-weight:700; opacity:.6; }
+.lu-s b{ font-size:24px; font-variant-numeric:tabular-nums; line-height:1.15; }
+.lu-s.on{ box-shadow:0 0 0 3px var(--c), 0 0 0 6px #fff; transform:scale(1.04); }
+.caret{ display:inline-block; width:2px; height:.85em; background:currentColor; margin-left:2px; vertical-align:-1px; animation:blink 1s steps(2) infinite; }
+.lu-pad{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+.lu-pad button{ padding:13px 0; font-size:22px; font-weight:600; border-radius:12px; background:var(--bg); }
+.lu-pad button:active{ filter:brightness(.9); }
+.lu-pad .lu-next{ background:var(--home); color:#fff; font-size:16px; }
 #timeout{ flex-direction:column; gap:26px; color:#fff; }
 #timeout .tt{ font-size:22px; font-weight:600; }
 #timeout .seg{ height:150px; gap:14px; }
@@ -607,7 +617,7 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 /* ---------- Fenêtres ---------- */
 const modal = document.getElementById('modal'), sheet = document.getElementById('sheet');
 function open(html){ sheet.innerHTML = html; modal.classList.add('show'); const f = sheet.querySelector('input'); if(f) setTimeout(()=>f.focus(),50); }
-function close(){ modal.classList.remove('show'); }
+function close(){ modal.classList.remove('show'); LU = null; }
 modal.addEventListener('click', e => { if(e.target===modal) close(); });
 function message(title, body){
   open(`<h2>${title}</h2><p>${body}</p><div class="actions"><button class="primary" data-m="close">OK</button></div>`);
@@ -618,12 +628,63 @@ function confirmNew(){
   open(`<h2>Nouveau match ?</h2><p>Le score, les sets et le chrono seront remis à zéro. Les noms et les numéros des joueurs sont conservés.</p>
   <div class="actions"><button data-m="close">Annuler</button><button class="danger" data-m="new">Nouveau match</button></div>`);
 }
-function editPlayer(t, pos){
-  const n = S[t].rot[pos-1];
-  open(`<h2>Poste ${pos} – ${esc(name(t))}</h2>
-  <label>Numéro du joueur <input id="pnum" type="number" inputmode="numeric" min="0" max="99" value="${n}"></label>
-  <div class="actions"><button data-m="close">Annuler</button><button class="primary" data-m="player" data-team="${t}" data-pos="${pos}">Enregistrer</button></div>`);
+/* ---------- Saisie rapide de la composition ---------- */
+let LU = null;
+const ROMAN = ['I','II','III','IV','V','VI'];
+function editPlayer(t, pos){ LU = { t, pos, buf:'', rot:S[t].rot.slice() }; renderLU(); }
+function renderLU(){
+  const t = LU.t, layout = (S.swapped ? 'away' : 'home') === t ? LEFT_LAYOUT : RIGHT_LAYOUT;
+  const slots = layout.map(p => {
+    const on = p === LU.pos, val = on && (LU.buf !== '' || LU.cleared) ? (LU.buf || '–') : LU.rot[p-1];
+    return `<button class="lu-s${on?' on':''}" data-lu="slot" data-pos="${p}" aria-label="Poste ${ROMAN[p-1]}, joueur ${val}"${on?' aria-current="true"':''}>
+      <small>${ROMAN[p-1]}</small><b>${val}${on?'<i class="caret"></i>':''}</b></button>`;
+  }).join('');
+  const keys = ['1','2','3','4','5','6','7','8','9','del','0','next'].map(k =>
+    k==='del' ? '<button data-lu="del" aria-label="Effacer">⌫</button>' :
+    k==='next' ? `<button data-lu="next" class="lu-next">${LU.pos===6 ? 'OK ✓' : 'Suivant ›'}</button>` :
+    `<button data-lu="k" data-k="${k}">${k}</button>`).join('');
+  open(`<h2>Composition – ${esc(name(t))}</h2>
+    <p style="margin:0 0 10px">Poste <b>${ROMAN[LU.pos-1]}</b> : tape le numéro. Un numéro déjà sur le terrain est échangé.</p>
+    <div class="lu-court" style="--c:${col(t)}">${slots}</div>
+    <div class="lu-pad">${keys}</div>
+    <div class="actions"><button data-lu="cancel">Annuler</button><button class="primary" data-lu="done">Terminé</button></div>`);
 }
+function luCommit(){
+  if(LU.buf === '') return;
+  const v = parseInt(LU.buf, 10), i = LU.pos - 1, j = LU.rot.indexOf(v);
+  LU.buf = ''; LU.cleared = false;
+  if(j >= 0 && j !== i) LU.rot[j] = LU.rot[i];   // échange si le numéro est déjà sur le terrain
+  LU.rot[i] = v;
+}
+function luSave(){
+  luCommit();
+  if(LU.rot.join() !== S[LU.t].rot.join()){ snap(); S[LU.t].rot = LU.rot.slice(); commit(); buzz(); }
+  LU = null; close();
+}
+function luNext(){ luCommit(); if(LU.pos < 6){ LU.pos++; renderLU(); } else luSave(); }
+function luKey(k){
+  if(!LU) return;
+  if(k === 'del'){ LU.buf = (LU.buf !== '' || LU.cleared) ? LU.buf.slice(0,-1) : String(LU.rot[LU.pos-1]).slice(0,-1); LU.cleared = true; renderLU(); return; }
+  if(k === 'next'){ luNext(); return; }
+  LU.cleared = false;
+  LU.buf = (LU.buf + k).replace(/^0(?=\d)/, '').slice(0, 2);
+  if(LU.buf.length === 2) luNext(); else renderLU();
+}
+sheet.addEventListener('click', e => {
+  const b = e.target.closest('[data-lu]'); if(!b || !LU) return;
+  const a = b.dataset.lu;
+  if(a === 'k') luKey(b.dataset.k);
+  else if(a === 'del' || a === 'next') luKey(a);
+  else if(a === 'slot'){ luCommit(); LU.cleared = false; LU.pos = +b.dataset.pos; renderLU(); }
+  else if(a === 'done') luSave();
+  else if(a === 'cancel'){ LU = null; close(); }
+});
+document.addEventListener('keydown', e => {
+  if(!LU || !modal.classList.contains('show')) return;
+  if(/^\d$/.test(e.key)){ e.preventDefault(); luKey(e.key); }
+  else if(e.key === 'Backspace'){ e.preventDefault(); luKey('del'); }
+  else if(e.key === 'Enter' || e.key === 'Tab'){ e.preventDefault(); luKey('next'); }
+});
 function historyView(){
   let rows = S.sets.map((s,i)=>`<div class="row"><span>Set ${i+1}</span><span><b class="h">${s.home}</b> – <b class="a">${s.away}</b></span></div>`).join('');
   if(!S.winner) rows += `<div class="row"><span>Set ${setNo()} (en cours)</span><span><b class="h">${S.home.points}</b> – <b class="a">${S.away.points}</b></span></div>`;
@@ -698,7 +759,7 @@ sheet.addEventListener('click', e => {
   }
   close();
 });
-sheet.addEventListener('keydown', e => { if(e.key==='Enter'){ const p = sheet.querySelector('.primary'); if(p) p.click(); } });
+sheet.addEventListener('keydown', e => { if(e.key==='Enter' && !LU){ const p = sheet.querySelector('.primary'); if(p) p.click(); } });
 
 /* ---------- Rendu ---------- */
 const app = document.getElementById('app');
