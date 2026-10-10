@@ -130,7 +130,9 @@ try{ SET = JSON.parse(localStorage.getItem('vs_settings')||'{}')||{}; }catch(e){
 if(SET.homeColor) document.documentElement.style.setProperty('--home', SET.homeColor);
 if(SET.awayColor) document.documentElement.style.setProperty('--away', SET.awayColor);
 const SYNC = SET.syncUrl || DEFAULT_SYNC;
-const SHEET = SET.sheetUrl !== undefined ? SET.sheetUrl : "https://docs.google.com/spreadsheets/d/1Bn9pXDo9P2yCf-vW4lnqFUerIFyICed5Gp9ZizYNqAo/edit?usp=sharing";
+// Le lien du Google Sheets n'est plus écrit dans le site : le script le donne seulement avec le bon code d'équipe
+let VERIFIED = false;
+const sheetLink = () => (VERIFIED && RAW && RAW.sheetUrl) ? RAW.sheetUrl : '';
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toD = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
 const TODAY = (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
@@ -142,7 +144,7 @@ function openOv(html){ $('ovs').innerHTML = html; $('ov').classList.add('show');
 function closeOv(){ $('ov').classList.remove('show'); }
 $('ov').addEventListener('click', e => { if(e.target.id==='ov' || e.target.closest('[data-close]')) closeOv(); });
 document.addEventListener('keydown', e => { if(e.key==='Escape') closeOv(); });
-const foot = html => { $('foot').innerHTML = html + (SHEET ? `<p><a href="${esc(SHEET)}" target="_blank" rel="noopener">Ouvrir le Google Sheets</a></p>` : ''); };
+const foot = html => { const u = sheetLink(); $('foot').innerHTML = html + (u ? `<p><a href="${esc(u)}" target="_blank" rel="noopener">Ouvrir le Google Sheets</a></p>` : ''); };
 
 /* ---------- Synchronisation avec Google Sheets ---------- */
 let DATA = null, RAW = null, CODE = SET.teamCode || '';
@@ -161,6 +163,7 @@ function syncLine(msg, err){
 const ago = iso => { const m = Math.round((Date.now() - new Date(iso)) / 60000);
   return m < 1 ? "à l'instant" : m < 60 ? `il y a ${m} min` : new Date(iso).toLocaleString('fr-FR', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }); };
 function codeForm(msg){
+  $('foot').innerHTML = '';
   $('main').innerHTML = `<section class="card"><h2 style="margin-top:0">Code d'équipe</h2>
     <p class="muted" style="margin:0">${msg || "Entre le code d'équipe pour voir les données synchronisées avec le Google Sheets."}</p>
     <form class="codeform" id="cf"><input id="cfi" type="password" autocomplete="current-password" placeholder="Code d'équipe" aria-label="Code d'équipe" required>
@@ -170,17 +173,17 @@ function codeForm(msg){
   syncLine('Non connecté');
 }
 async function load(force){
-  if(!DATA){ try{ const c = JSON.parse(localStorage.getItem('vs_sync') || 'null'); if(c && c.ok){ adapt(c); render(); syncLine('Dernière version : ' + ago(c.updated)); } }catch(e){} }
+  if(!DATA && CODE){ try{ const c = JSON.parse(localStorage.getItem('vs_sync') || 'null'); if(c && c.ok){ VERIFIED = true; adapt(c); render(); syncLine('Dernière version : ' + ago(c.updated)); } }catch(e){} }
   if(!CODE){ codeForm(); return; }
   syncLine('Synchronisation…');
   try{
     const r = await fetch(SYNC + '?code=' + encodeURIComponent(CODE) + '&t=' + Date.now());
     const j = await r.json();
     if(!j.ok){
-      if(j.error === 'code'){ CODE = ''; codeForm("Code d'équipe incorrect. Réessaie."); return; }
+      if(j.error === 'code'){ CODE = ''; VERIFIED = false; DATA = null; RAW = null; try{ localStorage.removeItem('vs_sync'); }catch(e){} codeForm("Code d'équipe incorrect. Réessaie."); return; }
       throw new Error(j.error);
     }
-    saveCache(j); adapt(j); render(); syncLine('Synchronisé ' + ago(j.updated));
+    VERIFIED = true; saveCache(j); adapt(j); render(); syncLine('Synchronisé ' + ago(j.updated));
   }catch(e){
     if(DATA) syncLine('Hors ligne – dernière version ' + ago(DATA.updated), true);
     else { $('main').innerHTML = `<div class="card">Impossible de joindre le Google Sheets (${esc(e.message || 'réseau')}). Vérifie ta connexion puis touche Actualiser.</div>`; syncLine('Erreur de synchronisation', true); }
