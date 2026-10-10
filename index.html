@@ -166,6 +166,12 @@ button:disabled{ opacity:.35; }
 .lu-tools button{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 2px; border-radius:12px; background:var(--bg);
   font-size:12px; font-weight:600; line-height:1.15; }
 .lu-tools .ico{ width:22px; height:22px; }
+@media (max-height:720px){
+  .lu-s b{ font-size:20px; } .lu-s{ padding:3px 0 5px; } .lu-court{ gap:6px; padding:8px; }
+  .lu-tools{ margin-top:8px; } .lu-tools button{ padding:5px 2px; } .lu-tools .ico{ width:18px; height:18px; }
+  .lu-pad{ gap:6px; margin-top:8px; } .lu-pad button{ padding:9px 0; font-size:20px; }
+  .sheet{ padding:16px; } .sheet .actions{ margin-top:12px; } .sheet .actions button{ padding:11px; }
+}
 #timeout{ flex-direction:column; gap:26px; color:#fff; }
 #timeout .tt{ font-size:22px; font-weight:600; }
 #timeout .seg{ height:150px; gap:14px; }
@@ -195,7 +201,7 @@ button:disabled{ opacity:.35; }
 <script>
 (() => {
 /* ---------- Icônes ---------- */
-const APP_VERSION = 22;
+const APP_VERSION = 23;
 const I = {
   cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
   users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7"/><path d="M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/>',
@@ -662,8 +668,7 @@ function renderLU(){
     k==='del' ? '<button data-lu="del" aria-label="Effacer">⌫</button>' :
     k==='next' ? `<button data-lu="next" class="lu-next">${LU.pos===6 ? 'OK ✓' : 'Suivant ›'}</button>` :
     `<button data-lu="k" data-k="${k}">${k}</button>`).join('');
-  open(`<h2>Composition – ${esc(name(t))}</h2>
-    <p style="margin:0 0 10px">Poste <b>${ROMAN[LU.pos-1]}</b> : tape le numéro (un numéro déjà sur le terrain est échangé), ou fais tourner l'équipe.</p>
+  open(`<h2 style="margin-bottom:10px">Composition – ${esc(name(t))}</h2>
     <div class="lu-court" style="--c:${col(t)}">${slots}</div>
     <div class="lu-tools">
       <button data-lu="rotb" aria-label="Rotation arrière">${ico('ccw')}<span>Rotation arrière</span></button>
