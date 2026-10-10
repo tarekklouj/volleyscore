@@ -618,7 +618,7 @@ document.addEventListener('visibilitychange', () => { if(document.visibilityStat
 const modal = document.getElementById('modal'), sheet = document.getElementById('sheet');
 function open(html){ sheet.innerHTML = html; modal.classList.add('show'); const f = sheet.querySelector('input'); if(f) setTimeout(()=>f.focus(),50); }
 function close(){ modal.classList.remove('show'); LU = null; }
-modal.addEventListener('click', e => { if(e.target===modal) close(); });
+modal.addEventListener('click', e => { if(e.target===modal && !LU) close(); }); // la composition ne se ferme qu'avec Terminé ou Annuler
 function message(title, body){
   open(`<h2>${title}</h2><p>${body}</p><div class="actions"><button class="primary" data-m="close">OK</button></div>`);
 }
